@@ -1,0 +1,18 @@
+idf_component_register(
+    SRCS "main.c"
+         "niulai_app.c"
+         "niulai_audio_math.c"
+         "niulai_font_14.c"
+         "niulai_font_20.c"
+         "niulai_model.c"
+         "niulai_voice_store.c"
+    INCLUDE_DIRS "."
+    REQUIRES bsp esp_partition
+    EMBED_FILES "assets/niulai/home.rgb565"
+                "assets/niulai/calf-1.rgb565"
+                "assets/niulai/calf-2.rgb565"
+                "assets/niulai/mother-1.rgb565"
+                "assets/niulai/mother-2-open.rgb565"
+                "assets/niulai/mama.pcm"
+                "assets/niulai/niulai.pcm"
+)
