@@ -6,11 +6,23 @@
 
 ## 当前应用：牛来互动播放器
 
-当前 `main` 直接启动《牛来》互动页面：主页显示电影海报、操作提示和左上角项目色 iOS 风格电池图标；短按 `UP` 显示牛来动画并播放“妈妈～～”，短按 `DOWN` 显示牛妈妈动画并播放“牛来！”。在牛来页长按 `UP`、在妈妈页长按 `DOWN` 可录制最长 10 秒的自定义角色声音，松开即保存，之后播放会覆盖对应内置声音。任意页面短按 `OK` 进入音量设置；设置页双击 `OK` 可删除两段自定义声音并恢复默认。长按 `OK` 返回主页。音频采用 16 kHz、16-bit、单声道 PCM，并在独立任务中流式播放、录制和写入 Flash。
+当前 `main` 直接启动《牛来》互动页面。主页显示电影海报、操作提示和左上角电池图标。
+
+| 按键        | 位置     | 作用                                         |
+| ----------- | -------- | -------------------------------------------- |
+| `UP` 短按   | 任意页面 | 显示牛来动画，播放“妈妈～～”                 |
+| `DOWN` 短按 | 任意页面 | 显示牛妈妈动画，播放“牛来！”                 |
+| `UP` 长按   | 牛来页   | 录制小牛自定义声音（最长 10 秒，松开保存）   |
+| `DOWN` 长按 | 妈妈页   | 录制牛妈妈自定义声音（最长 10 秒，松开保存） |
+| `OK` 短按   | 任意页面 | 进入音量设置                                 |
+| `OK` 双击   | 设置页   | 删除两段自定义声音并恢复默认                 |
+| `OK` 长按   | 任意页面 | 返回主页                                     |
+
+自定义录音保存后，播放时覆盖对应内置声音。
 
 自定义录音使用 `recordings` 数据分区。首次安装带录音功能的版本必须烧录整机合并版以更新分区表；仅更新应用 BIN 不会创建该分区。
 
-原始宣传素材来源及发布提醒见 [`assets/niulai/SOURCES.md`](assets/niulai/SOURCES.md)。公开发布包含这些素材的固件前，请先确认对应授权。
+可以使用官方 Web 刷机工具刷写预编译固件：<https://ai-passport.folotoy.cn/tools/web-flasher>。
 
 FoloToy AI Passport 是一个面向 AI agent 的开放式可穿戴 AI 硬件，本仓库是这款 AI 硬件的开发基线。它不只展示“板子能运行什么”，还把 agent 开发应用所需的**硬件事实、稳定接口、资源边界、参考实现和验收方法**放在同一仓库中。
 
@@ -53,14 +65,14 @@ FoloToy AI Passport 是一个面向 AI agent 的开放式可穿戴 AI 硬件，�
 
 下表描述的是当前 `main` 已提供的应用能力，而不是芯片数据手册中所有可能的能力。
 
-| 能力 | 已确认实现 | 应用接口 | 必须遵守的边界 |
-| --- | --- | --- | --- |
-| 显示 | ST7789P3，240 × 320，竖屏 RGB565，SPI2 40 MHz；LEDC 背光 | `bsp_display_*`、`bsp_lvgl_*` | ESP32-C3 无 PSRAM；当前为小型单 DMA 缓冲；没有 LCD MISO、触摸或已知 TE 接口 |
-| 输入 | `UP` / `DOWN` / `OK` 三键，共用 GPIO0 的 ADC 电阻分压 | `bsp_button_init()`、`bsp_button_read_mv()` | 回调运行在 button 组件任务中，不能阻塞；不能再创建第二个 ADC1 unit |
-| 音频 | ES8311，I2S0 全双工 PCM，可播放和麦克风录音 | `bsp_audio_*` | PCM 读写为阻塞调用，应放工作任务；格式切换必须保留 BSP 内的 close/open 流程 |
-| 电池 | CW2017 的 SOC 与电压读取 | `bsp_battery_*` | 是可缺省能力；读数精度取决于电芯与 profile，不能等同于已标定结果 |
-| 共享总线 | ES8311 与 CW2017 共用 I2C0 | `bsp_i2c_*` | 所有设备复用 BSP 持有的总线；不能为扫描或新设备再创建同端口总线 |
-| 日志与烧录 | ESP32-C3 原生 USB Serial/JTAG | ESP-IDF console | GPIO18/19 保留给 USB；UART0 默认 TX GPIO21 与背光冲突 |
+| 能力       | 已确认实现                                               | 应用接口                                    | 必须遵守的边界                                                              |
+| ---------- | -------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
+| 显示       | ST7789P3，240 × 320，竖屏 RGB565，SPI2 40 MHz；LEDC 背光 | `bsp_display_*`、`bsp_lvgl_*`               | ESP32-C3 无 PSRAM；当前为小型单 DMA 缓冲；没有 LCD MISO、触摸或已知 TE 接口 |
+| 输入       | `UP` / `DOWN` / `OK` 三键，共用 GPIO0 的 ADC 电阻分压    | `bsp_button_init()`、`bsp_button_read_mv()` | 回调运行在 button 组件任务中，不能阻塞；不能再创建第二个 ADC1 unit          |
+| 音频       | ES8311，I2S0 全双工 PCM，可播放和麦克风录音              | `bsp_audio_*`                               | PCM 读写为阻塞调用，应放工作任务；格式切换必须保留 BSP 内的 close/open 流程 |
+| 电池       | CW2017 的 SOC 与电压读取                                 | `bsp_battery_*`                             | 是可缺省能力；读数精度取决于电芯与 profile，不能等同于已标定结果            |
+| 共享总线   | ES8311 与 CW2017 共用 I2C0                               | `bsp_i2c_*`                                 | 所有设备复用 BSP 持有的总线；不能为扫描或新设备再创建同端口总线             |
+| 日志与烧录 | ESP32-C3 原生 USB Serial/JTAG                            | ESP-IDF console                             | GPIO18/19 保留给 USB；UART0 默认 TX GPIO21 与背光冲突                       |
 
 所有引脚、地址、面板参数和按键电压窗口只在 [`components/bsp/include/bsp_pins.h`](components/bsp/include/bsp_pins.h) 定义。应用代码不得复制这些常量。完整引脚表、面板初始化、ADC 阈值、I2C 地址规则、音频时钟和内存说明见 [AI 硬件开发指南](docs/AI_HARDWARE_DEVELOPMENT_GUIDE.md)。
 
@@ -98,13 +110,13 @@ FoloToy AI Passport 是一个面向 AI agent 的开放式可穿戴 AI 硬件，�
 
 每个 `demo/*` 分支都从基线演化出一个独立应用。它们的价值是展示具体问题的实现方式；新应用通常应从 `main` 建分支，按需参考，而不是把多个 demo 整体合并。
 
-| 分支 | 展示的应用 | 值得复用的模式 |
-| --- | --- | --- |
-| `demo/stopwatch` | 秒表 | 最小计时应用、纯逻辑与 LVGL 分离、主机逻辑测试 |
-| `demo/cat-themed-pomodoro-timer` | 猫咪养成番茄钟 | 单调时钟、暂停/恢复、NVS 持久化、较完整的 PRD 与状态模型 |
-| `demo/rock-paper-scissors` | 石头剪刀布 | RGB565 图片资产、素材生成脚本、Flash 资源权衡 |
-| `demo/tetris-game` | 三键俄罗斯方块 | 实时游戏循环、低延迟 `PRESS` 输入、局部刷新、纯游戏模型、音效与麦克风交互 |
-| `demo/claude-buddy-port` | 桌面 AI 硬件伴侣 | 用完整应用替换 demo 菜单、加密 BLE、协议解析、状态归约、任务通信和较完整的主机测试 |
+| 分支                             | 展示的应用       | 值得复用的模式                                                                     |
+| -------------------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| `demo/stopwatch`                 | 秒表             | 最小计时应用、纯逻辑与 LVGL 分离、主机逻辑测试                                     |
+| `demo/cat-themed-pomodoro-timer` | 猫咪养成番茄钟   | 单调时钟、暂停/恢复、NVS 持久化、较完整的 PRD 与状态模型                           |
+| `demo/rock-paper-scissors`       | 石头剪刀布       | RGB565 图片资产、素材生成脚本、Flash 资源权衡                                      |
+| `demo/tetris-game`               | 三键俄罗斯方块   | 实时游戏循环、低延迟 `PRESS` 输入、局部刷新、纯游戏模型、音效与麦克风交互          |
+| `demo/claude-buddy-port`         | 桌面 AI 硬件伴侣 | 用完整应用替换 demo 菜单、加密 BLE、协议解析、状态归约、任务通信和较完整的主机测试 |
 
 查看示例而不切换当前工作区：
 
@@ -216,6 +228,7 @@ MIT © 2026 FoloToy。详见 [LICENSE](LICENSE)。
 
 ## 致谢
 
+- FoloToy AI Passport 官方仓库：<https://github.com/FoloToy/ai-passport>。
 - `components/bsp/src/bsp_audio.c` 中的 ES8311 音频驱动移植自 `trae_card` 项目（`components/platform/platform_esp32/src/audio_es8311.c`），其上游许可证待确认。
 - [`assets/niulai/`](assets/niulai/) 中的宣传图片与音频有各自的发布条款，发布内置这些素材的固件前请先阅读 [SOURCES.md](assets/niulai/SOURCES.md)。
 - 基于 [ESP-IDF](https://github.com/espressif/esp-idf) 与 LVGL、`esp_lvgl_port`、`button`、`esp_codec_dev` 等开源组件构建，构建时由 ESP-IDF Component Manager 拉取。

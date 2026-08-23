@@ -6,11 +6,23 @@ English | [简体中文](README.zh_CN.md)
 
 ## Current app: Niu Lai interactive player
 
-The current `main` boots directly into a Niu Lai interaction screen with a project-colored iOS-style battery indicator at the top left. Press `UP` to show Niu Lai and play “Mama~~”; press `DOWN` to show Mama and play “Niu Lai!”. On the Niu Lai page, hold `UP` to record up to 10 seconds of a custom character voice; on the Mama page, hold `DOWN`. Release to save, after which the recording replaces the corresponding built-in voice. Short-press `OK` to open volume settings; double-click `OK` there to delete both recordings and restore the defaults. Hold `OK` to return home. Audio is 16 kHz, 16-bit mono PCM streamed through a dedicated recording/playback task.
+The current `main` boots directly into a Niu Lai interaction screen. The home page shows the movie poster, operation hints, and a battery indicator at the top left.
+
+| Button             | Where         | Effect                                                     |
+| ------------------ | ------------- | ---------------------------------------------------------- |
+| `UP` short press   | Any page      | Show Niu Lai, play “Mama~~”                                |
+| `DOWN` short press | Any page      | Show Mama, play “Niu Lai!”                                 |
+| `UP` hold          | Niu Lai page  | Record a custom calf voice (up to 10 s, release to save)   |
+| `DOWN` hold        | Mama page     | Record a custom mother voice (up to 10 s, release to save) |
+| `OK` short press   | Any page      | Open volume settings                                       |
+| `OK` double press  | Settings page | Delete both recordings and restore defaults                |
+| `OK` hold          | Any page      | Return home                                                |
+
+A saved recording replaces the corresponding built-in voice on playback.
 
 Custom voices use the `recordings` data partition. The first installation of a recording-enabled release must use the merged whole-device image so the partition table is updated; flashing only the app image does not create this partition.
 
-See [`assets/niulai/SOURCES.md`](assets/niulai/SOURCES.md) for the public promotional sources and distribution notice. Confirm the required rights before distributing firmware containing these assets.
+Flash a prebuilt release with the official web flasher: <https://ai-passport.folotoy.cn/tools/web-flasher>.
 
 FoloToy AI Passport is open wearable AI hardware designed for AI agents. This repository is the development baseline for the device. It goes beyond showing “what the board can run” by keeping the **hardware facts, stable interfaces, resource boundaries, reference implementations, and validation methods** that an agent needs to build applications in one place.
 
@@ -53,14 +65,14 @@ The repository does not currently include schematic or PCB source files. When th
 
 The table below describes the application capabilities implemented by the current `main` branch. It is not a list of everything that might be possible according to the chip datasheet.
 
-| Capability | Confirmed implementation | Application interface | Boundaries that must be respected |
-| --- | --- | --- | --- |
-| Display | ST7789P3, 240 × 320 portrait RGB565, SPI2 at 40 MHz; LEDC backlight | `bsp_display_*`, `bsp_lvgl_*` | The ESP32-C3 has no PSRAM; the current design uses a small single DMA buffer; no LCD MISO, touch, or known TE interface |
-| Input | `UP`, `DOWN`, and `OK` share an ADC resistor ladder on GPIO0 | `bsp_button_init()`, `bsp_button_read_mv()` | Callbacks run in the button component task and must not block; do not create a second ADC1 unit |
-| Audio | ES8311 with full-duplex PCM over I2S0, supporting playback and microphone capture | `bsp_audio_*` | PCM reads and writes block and belong in a worker task; format changes must retain the BSP close/open sequence |
-| Battery | CW2017 state-of-charge and voltage readings | `bsp_battery_*` | This capability is optional at runtime; accuracy depends on the cell and battery profile and is not equivalent to a calibrated result |
-| Shared bus | ES8311 and CW2017 share I2C0 | `bsp_i2c_*` | Every device must reuse the bus owned by the BSP; do not create another bus on the same port for scanning or a new device |
-| Logging and flashing | Native ESP32-C3 USB Serial/JTAG | ESP-IDF console | GPIO18/19 are reserved for USB; the default UART0 TX on GPIO21 conflicts with the backlight |
+| Capability           | Confirmed implementation                                                          | Application interface                       | Boundaries that must be respected                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Display              | ST7789P3, 240 × 320 portrait RGB565, SPI2 at 40 MHz; LEDC backlight               | `bsp_display_*`, `bsp_lvgl_*`               | The ESP32-C3 has no PSRAM; the current design uses a small single DMA buffer; no LCD MISO, touch, or known TE interface               |
+| Input                | `UP`, `DOWN`, and `OK` share an ADC resistor ladder on GPIO0                      | `bsp_button_init()`, `bsp_button_read_mv()` | Callbacks run in the button component task and must not block; do not create a second ADC1 unit                                       |
+| Audio                | ES8311 with full-duplex PCM over I2S0, supporting playback and microphone capture | `bsp_audio_*`                               | PCM reads and writes block and belong in a worker task; format changes must retain the BSP close/open sequence                        |
+| Battery              | CW2017 state-of-charge and voltage readings                                       | `bsp_battery_*`                             | This capability is optional at runtime; accuracy depends on the cell and battery profile and is not equivalent to a calibrated result |
+| Shared bus           | ES8311 and CW2017 share I2C0                                                      | `bsp_i2c_*`                                 | Every device must reuse the bus owned by the BSP; do not create another bus on the same port for scanning or a new device             |
+| Logging and flashing | Native ESP32-C3 USB Serial/JTAG                                                   | ESP-IDF console                             | GPIO18/19 are reserved for USB; the default UART0 TX on GPIO21 conflicts with the backlight                                           |
 
 All pins, addresses, panel parameters, and button voltage windows are defined only in [`components/bsp/include/bsp_pins.h`](components/bsp/include/bsp_pins.h). Application code must not duplicate these constants. See the [AI Hardware Development Guide](docs/AI_HARDWARE_DEVELOPMENT_GUIDE.md) for the complete pin map, panel initialization, ADC thresholds, I2C addressing rules, audio clocks, and memory details.
 
@@ -99,13 +111,13 @@ When details are omitted, an agent may choose conservative defaults that do not 
 
 Each `demo/*` branch evolves the baseline into an independent application. The branches demonstrate how specific problems were solved. New applications should normally branch from `main` and consult relevant examples instead of merging multiple demos wholesale.
 
-| Branch | Application | Patterns worth reusing |
-| --- | --- | --- |
-| `demo/stopwatch` | Stopwatch | Minimal timer application, separation of pure logic from LVGL, host-side logic tests |
-| `demo/cat-themed-pomodoro-timer` | Cat-themed Pomodoro timer | Monotonic time, pause/resume, NVS persistence, a detailed PRD, and a state model |
-| `demo/rock-paper-scissors` | Rock paper scissors | RGB565 image assets, asset-generation scripts, and Flash resource tradeoffs |
-| `demo/tetris-game` | Three-button Tetris | Real-time game loop, low-latency `PRESS` input, partial refresh, a pure game model, audio, and microphone interaction |
-| `demo/claude-buddy-port` | Desktop AI hardware companion | Replacing the demo menu with a complete application, encrypted BLE, protocol parsing, state reduction, task communication, and extensive host tests |
+| Branch                           | Application                   | Patterns worth reusing                                                                                                                              |
+| -------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `demo/stopwatch`                 | Stopwatch                     | Minimal timer application, separation of pure logic from LVGL, host-side logic tests                                                                |
+| `demo/cat-themed-pomodoro-timer` | Cat-themed Pomodoro timer     | Monotonic time, pause/resume, NVS persistence, a detailed PRD, and a state model                                                                    |
+| `demo/rock-paper-scissors`       | Rock paper scissors           | RGB565 image assets, asset-generation scripts, and Flash resource tradeoffs                                                                         |
+| `demo/tetris-game`               | Three-button Tetris           | Real-time game loop, low-latency `PRESS` input, partial refresh, a pure game model, audio, and microphone interaction                               |
+| `demo/claude-buddy-port`         | Desktop AI hardware companion | Replacing the demo menu with a complete application, encrypted BLE, protocol parsing, state reduction, task communication, and extensive host tests |
 
 Inspect an example without switching the current working tree:
 
@@ -217,6 +229,7 @@ MIT © 2026 FoloToy. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
+- The official FoloToy AI Passport repository: <https://github.com/FoloToy/ai-passport>.
 - The ES8311 audio driver in `components/bsp/src/bsp_audio.c` is ported from the `trae_card` project (`components/platform/platform_esp32/src/audio_es8311.c`); its upstream license is yet to be confirmed.
 - The promotional images and audio in [`assets/niulai/`](assets/niulai/) have their own distribution terms; read [SOURCES.md](assets/niulai/SOURCES.md) before shipping firmware that embeds them.
 - Built on [ESP-IDF](https://github.com/espressif/esp-idf) with open-source components (LVGL, `esp_lvgl_port`, `button`, `esp_codec_dev`) fetched by the ESP-IDF Component Manager at build time.
