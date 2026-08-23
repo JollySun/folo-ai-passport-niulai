@@ -36,7 +36,38 @@ jobs:
       image: espressif/idf:v5.5.3
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Build firmware
         run: |
+          . $IDF_PATH/export.sh > /dev/null
           idf.py set-target esp32c3
           idf.py build
+      - name: Prepare release binaries
+        id: prepare
+        run: |
+          # Container job workspace is owned by the runner user; git inside
+          # the espressif/idf container (running as root) needs this exception.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . $IDF_PATH/export.sh > /dev/null
+          VER="$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)"
+          # ESP-IDF does not emit merged.bin by default; merge from flash_args.
+          # flash_args uses --flash_size detect (header rewrite at flash time),
+          # which merge_bin rejects; pin the product's 8 MB size instead.
+          # Paths inside flash_args are relative to build/, so run from there.
+          sed -i 's/--flash_size detect/--flash_size 8MB/' build/flash_args
+          (cd build && esptool.py --chip esp32c3 merge_bin @flash_args -o merged.bin)
+          echo "ver=${VER}" >> "$GITHUB_OUTPUT"
+          mkdir -p release
+          cp build/merged.bin "release/folo-ai-passport-niulai-${VER}-full.bin"
+          # App image name derives from project() in CMakeLists.txt.
+          cp build/FoloToy-AI-Passport.bin "release/folo-ai-passport-niulai-${VER}-app.bin"
+          cp build/bootloader/bootloader.bin "release/folo-ai-passport-niulai-${VER}-bootloader.bin"
+          cp build/partition_table/partition-table.bin "release/folo-ai-passport-niulai-${VER}-partition-table.bin"
+          echo "Firmware version: ${VER}"
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-folo-ai-passport-niulai-${{ steps.prepare.outputs.ver }}
+          path: release/
+          if-no-files-found: error
