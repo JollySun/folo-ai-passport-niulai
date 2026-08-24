@@ -65,18 +65,21 @@ scripts/build-app.sh niulai flash monitor
 ## 项目结构
 
 ```text
-crates/passport-core/  可共用的 no_std 信号与电池计算
-components/bsp_*/     可独立选择的板级硬件模块
-apps/diagnostics/     最小 I2C 与电池诊断固件
-apps/niulai/          牛来状态、C ABI、固件、测试和全部资源
-tests/                共用的主机行为测试
-scripts/              测试与固件打包入口
-docs/                 使用、构建、架构和硬件文档
+apps/<app>/               独立 Rust 应用、firmware 元数据、测试和专属资源
+crates/passport-core/     可共用的硬件无关 no_std 计算
+crates/passport-platform/ 面向应用的通用 Rust 硬件与 ESP-IDF facade
+components/bsp_*/        按应用选择的通用 C 板级能力
+components/rust_app_entry/ 稳定的 app_main → passport_app_main 入口
+cmake/                   共用 Rust 静态库集成
+scripts/                 应用发现、测试、构建和打包入口
+docs/                    使用、构建、架构、硬件和维护文档
 ```
 
-共用计算逻辑位于 Rust `passport-core` crate，所有牛来实现与资源均位于
-`apps/niulai`，持久录音位于 `niulai_voice_store`，硬件访问统一经过 BSP
-接口。运行任务与 Flash 布局见[架构说明](docs/ARCHITECTURE.md)。
+应用行为使用 Rust 实现。与应用无关的 C 代码只负责 `components/` 下的板级
+和 ESP-IDF 机制，并通过 Rust `passport-platform` crate 提供给应用。牛来的
+全部行为、双 Bank 录音策略和资源均位于 `apps/niulai`。每个应用实现相同的
+`passport_app_main` 稳定入口，因此新增工具无需修改公共入口或注册表。模块
+边界、运行任务和 Flash 布局见[架构说明](docs/ARCHITECTURE.md)。
 
 ## 开发
 
@@ -91,6 +94,9 @@ scripts/build-app.sh diagnostics build
 构建。推送 `<app>/v*` 标签（例如 `niulai/v1.0.0`）后，该应用会独立发布整机、应用、bootloader、分区表和校验和文件。
 
 诊断工具可使用 `diagnostics/v1.0.0` 标签走同一套独立发布流程。
+
+开发新的独立小工具请阅读[新增应用指南](docs/ADDING_APPS.md)。只要
+`apps/<app>` 满足目录契约，本地脚本和 CI 会自动发现，不需要修改公共注册表。
 
 提交改动前请阅读[贡献指南](CONTRIBUTING.md)、[安全策略](SECURITY.md)和[变更记录](CHANGELOG.md)。
 

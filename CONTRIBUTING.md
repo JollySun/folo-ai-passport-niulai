@@ -7,8 +7,12 @@ Thanks for improving the Niu Lai firmware. Keep changes focused, reproducible, a
 1. Search existing issues and describe user-visible behavior before implementation details.
 2. Read [Architecture](docs/ARCHITECTURE.md) and [Hardware](docs/HARDWARE.md) for the affected area.
 3. Do not add movie or third-party media unless its redistribution terms are documented.
-4. Keep pure reusable behavior in `crates/passport-core`, all Niu Lai code and
-   resources in `apps/niulai`, and reusable board access in `components/bsp_*`.
+4. Keep pure reusable algorithms in `crates/passport-core`, reusable Rust hardware
+   access in `crates/passport-platform`, reusable board mechanisms in
+   `components/bsp_*`, and all app-specific behavior and resources in `apps/<app>`.
+5. Follow [Adding an application](docs/ADDING_APPS.md) for new tools. A new app
+   must be discoverable without adding its name to shared crates, components,
+   CMake files, scripts, or workflows.
 
 ## Local verification
 
@@ -26,6 +30,9 @@ Hardware-facing changes must also be tested on a FoloToy AI Passport. Record the
 
 - C uses four-space indentation, K&R braces, `snake_case`, `s_` for file-local state, and `bsp_` for BSP interfaces.
 - Rust is formatted with `rustfmt`; keep `passport-core` free of ESP-IDF and allocation unless a measured requirement justifies it.
+- Application behavior is Rust. C under `components/` must remain app-neutral;
+  C files under an app firmware directory are limited to generated resources with
+  their generation source recorded.
 - Keep hardware constants in `components/bsp_board/include/bsp_pins.h`.
 - Treat button callbacks as `esp_timer` callbacks: keep them bounded and never perform audio, Flash, or other long-running work in them.
 - Every `Ui`/LVGL call must either run in the LVGL task or be enclosed by `display::lock()`/`bsp_lvgl_lock()`; application state methods must not contain hidden UI writes.

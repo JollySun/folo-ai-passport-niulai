@@ -5,6 +5,7 @@
 | [USER_GUIDE.md](USER_GUIDE.md) | 使用者 | 安装、按键、录音、设置与故障排查 |
 | [BUILDING.md](BUILDING.md) | 开发者/维护者 | 环境、测试、构建、烧录与发布打包 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 贡献者 | 模块接口、运行任务、Flash 和资源布局 |
+| [ADDING_APPS.md](ADDING_APPS.md) | 应用开发者 | 新工具目录契约、Rust 入口、依赖、测试和独立发布 |
 | [HARDWARE.md](HARDWARE.md) | 驱动开发者 | 已确认硬件、引脚、约束与实机验收 |
 | [incidents/2026-08-25-lvgl-cross-task-freeze.md](incidents/2026-08-25-lvgl-cross-task-freeze.md) | 维护者 | Rust 迁移后 LVGL 跨任务访问死机复盘与防复发规则 |
 | [../apps/niulai/assets/SOURCES.md](../apps/niulai/assets/SOURCES.md) | 发布者 | 媒体素材来源与分发限制 |

@@ -6,17 +6,18 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 
-- Began the Rust migration with `no_std` crates for shared calculations and the
-  Niu Lai application model while retaining the proven ESP-IDF BSP, LVGL UI,
-  and audio stack.
-- Moved the complete Niu Lai application, C ABI, tests, and media under
-  `apps/niulai`; application selection and releases are now independent of the
-  shared Rust and BSP modules.
+- Completed the Rust migration for Niu Lai application behavior, including its
+  state, UI orchestration, tasks, and voice-store policy, while retaining the
+  app-neutral ESP-IDF and board mechanisms in C.
+- Moved the complete Niu Lai application, tests, and media under `apps/niulai`;
+  application selection and releases are now independent of the shared Rust and
+  BSP modules.
 - Added a minimal independently released diagnostics application that reuses
   only the shared Rust core, I2C, and battery modules.
 - Split application sdkconfig/partition policy from board defaults and divided
   the BSP build into independently selectable hardware modules.
-- Moved the shared PCM and battery C interface into `passport-core`.
+- Added `passport-core` for shared pure Rust calculations and
+  `passport-platform` as the reusable Rust facade over C BSP capabilities.
 
 ### Fixed
 

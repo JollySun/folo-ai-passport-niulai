@@ -29,15 +29,33 @@ scripts/build-app.sh niulai build
 `apps/<app>/sdkconfig.defaults` 保存应用自己的 UI 与分区策略。生成配置写入
 `build/<app>/sdkconfig`，不会在切换工具时共用。
 
+`scripts/build-app.sh` 把应用名传给根 CMake 的 `PASSPORT_APP`，后者只注册
+`apps/<app>/firmware` 及其声明的传递依赖。应用 Rust crate 由
+`cmake/passport_rust_app.cmake` 交叉编译为 static library，并通过通用
+`components/rust_app_entry` 的 `passport_app_main` 符号启动。
+
 ## 主机测试
 
 ```bash
 scripts/test.sh
 ```
 
-该命令在临时目录运行 Rust 单元测试，再将原有 C 行为测试链接到 Rust
-静态库，验证应用状态机、PCM 音量、电池电压换算和迁移 ABI。它不需要
-ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换 C 编译器。
+该命令检查 Rust 格式、运行 workspace Rust 单元测试、执行
+`scripts/check-architecture.sh`、验证公共板卡头文件，再自动调用每个已发现
+应用的 `test.sh`。它覆盖应用状态机、PCM 音量、电池电压换算和公共目录边界，
+不需要 ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换 C 编译器。
+
+以下四个文件同时存在且 `test.sh` 可执行时，应用才会被本地脚本和 CI 自动发现：
+
+```text
+apps/<app>/Cargo.toml
+apps/<app>/firmware/CMakeLists.txt
+apps/<app>/sdkconfig.defaults
+apps/<app>/test.sh
+```
+
+新增工具无需修改根 workspace、CMake、CI matrix 或发布 workflow。完整模板见
+[新增应用指南](ADDING_APPS.md)。
 
 ## 烧录与日志
 
@@ -83,10 +101,14 @@ scripts/package-firmware.sh niulai build/niulai dist/niulai dev
 使用 esptool 烧录整机镜像：
 
 ```bash
-esptool.py --chip esp32c3 write_flash 0x0 dist/niulai/folo-ai-passport-niulai-dev-full.bin
+python -m esptool --chip esp32c3 write-flash 0x0 dist/niulai/folo-ai-passport-niulai-dev-full.bin
 ```
 
 `build/`、`target/`、`dist/`、`managed_components/` 和 `sdkconfig` 都是本地生成内容，已由 Git 忽略。
+
+调试崩溃或 watchdog 时，应保留与被测 `.bin` 完全一致的
+`build/<app>/FoloToy-AI-Passport.elf` 和 `.map`。发布包只保证提供可烧录镜像
+和校验和，不能用另一提交的 ELF 解析设备地址。
 
 ## CI 与发布
 
@@ -106,3 +128,6 @@ git push origin niulai/v1.0.0
 ## 实机验收
 
 自动构建不能替代硬件验证。至少检查：稳定启动、显示方向和颜色、三键短按/长按/双击、两段默认声音、音量 0/50/100%、两路录音和重启后持久化、电量降级，以及恢复默认声音。
+
+涉及 UI、callback、task、mutex 或 FFI 的修改还必须按[贡献指南](../CONTRIBUTING.md#local-verification)
+进行至少三分钟串口监控，并确认没有 watchdog、LVGL assertion、panic 或 reboot。
