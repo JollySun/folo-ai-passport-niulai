@@ -1,5 +1,3 @@
-include(ExternalProject)
-
 idf_component_register(SRCS "placeholder.c")
 
 if(NOT CONFIG_IDF_TARGET_ESP32C3)
