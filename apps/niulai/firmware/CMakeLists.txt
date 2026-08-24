@@ -11,6 +11,7 @@ idf_component_register(
                 "assets/mother-2-open.rgb565"
                 "assets/mama.pcm"
                 "assets/niulai.pcm"
+    WHOLE_ARCHIVE
 )
 
 include("${PROJECT_DIR}/cmake/passport_rust_app.cmake")
