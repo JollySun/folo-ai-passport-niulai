@@ -5,30 +5,30 @@
 项目把业务状态、持久存储和板级硬件放在三个清晰接口之后，使可测试逻辑不依赖 ESP-IDF，同时避免为只有一个实现的功能增加额外抽象。
 
 ```text
-app_main
-  └─ niulai_app_start
-      ├─ niulai-core           Rust 牛来状态与动作决策
-      ├─ passport-core         Rust 共用 PCM 与电池计算
-      ├─ passport-rust         迁移期间供 C 调用的窄适配层
-      ├─ niulai_voice_store    双 Bank 录音持久化
-      └─ components/bsp        显示、按键、音频、电池、共享 I2C
+根 CMake PASSPORT_APP 选择器
+  └─ apps/niulai/firmware/app_main
+      └─ niulai_app_start
+          ├─ apps/niulai        Rust 牛来状态、动作决策与专属 C ABI
+          ├─ passport-core      Rust 共用 PCM 与电池计算
+          ├─ niulai_voice_store 双 Bank 录音持久化
+          └─ components/bsp     显示、按键、音频、电池、共享 I2C
 ```
 
 ## 模块
 
 | 模块 | 接口 | 职责 |
 | --- | --- | --- |
-| `niulai-core` | `Model::apply` | 牛来页面、返回页、音量和输入到动作的映射；`no_std` 且可在主机测试 |
+| `apps/niulai` | `Model::apply` 和现有 C 头文件 | 牛来页面、返回页、音量、动作映射和迁移期 C ABI；`no_std` 且可在主机测试 |
 | `passport-core` | Rust 纯函数 | 多工具可共用的 PCM 音量和电池估算；`no_std` 且可在主机测试 |
-| `passport-rust` | 现有 C 头文件 | 将临时 C ABI 转成 Rust core 类型；不包含业务逻辑或 ESP-IDF 调用 |
 | `niulai_app` | `niulai_app_start` | LVGL 页面、动画、任务、按键编排和故障降级 |
 | `niulai_voice_store` | `init/read/begin/append/finish/reset` | 录音流式写入、校验和双 Bank 原子切换 |
 | `components/bsp` | `bsp_*` 头文件 | 隐藏 GPIO、I2C、I2S、SPI、ADC 和器件初始化细节 |
 
 硬件常量只在 `components/bsp/include/bsp_pins.h` 定义。应用不得复制 GPIO、总线地址或屏幕参数。
 
-`passport-rust` 是渐进迁移适配层，不是新的业务接口。当前 C 调用者迁移到
-Rust 后应删除它；新的 Rust 代码直接依赖 `passport-core`，不得经过 C ABI。
+根 CMake 工程只负责根据 `PASSPORT_APP` 把对应 `apps/<app>/firmware`
+注册为 ESP-IDF module。每个应用拥有自己的 Rust 静态库和 C ABI；应用
+之间只通过 `passport-core` 源码与 BSP interface 共享行为，不共享应用 adapter。
 
 ## 运行任务
 
@@ -52,9 +52,9 @@ LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时
 
 ## 素材管线
 
-- `assets/niulai/` 保存可人工查看/试听的 PNG、GIF、WAV 和来源说明。
-- `main/assets/niulai/` 保存直接嵌入固件的 RGB565 与无 WAV 头 PCM。
-- `main/CMakeLists.txt` 是固件素材清单；没有在其中列出的二进制不会进入镜像。
+- `apps/niulai/assets/` 保存可人工查看/试听的 PNG、GIF、WAV 和来源说明。
+- `apps/niulai/firmware/assets/` 保存直接嵌入固件的 RGB565 与无 WAV 头 PCM。
+- `apps/niulai/firmware/CMakeLists.txt` 是固件素材清单；没有在其中列出的二进制不会进入镜像。
 
 新增媒体前要确认再分发权，并检查 factory 分区余量和 ESP32-C3 内部 RAM。设备没有 PSRAM，音频使用固定大小块流式处理，禁止一次性加载完整录音。
 
@@ -64,7 +64,8 @@ LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时
 
 ## 测试接口
 
-`scripts/test.sh` 运行两个 Rust core 的测试，并让原有 C 行为测试链接
-`passport-rust` 静态库，从同一接口验证迁移前后的 ABI 行为。完整 ESP-IDF
-构建验证 Rust 交叉编译、驱动、分区、素材符号和依赖集成；显示、声音、ADC
-和电池仍必须上板验收。
+`scripts/test.sh` 运行 workspace Rust 测试，再自动调用每个应用自己的主机
+测试。Niu Lai 的 C 行为测试直接链接 `niulai-app` 静态库，从应用 interface
+验证迁移前后的 ABI 行为。CI 自动发现所有含 Rust crate、firmware module
+和测试入口的应用，并分别验证交叉编译、驱动、分区、素材符号和依赖集成；
+显示、声音、ADC 和电池仍必须上板验收。

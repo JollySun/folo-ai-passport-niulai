@@ -13,6 +13,21 @@ permissions:
   contents: read
 
 jobs:
+  discover-apps:
+    name: Discover applications
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.apps.outputs.apps }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: List buildable applications
+        id: apps
+        run: echo "apps=$(scripts/list-apps.sh --json)" >> "$GITHUB_OUTPUT"
+
   host-tests:
     name: Host tests
     runs-on: ubuntu-latest
@@ -33,9 +48,14 @@ jobs:
         run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD
 
   firmware:
-    name: ESP-IDF 5.5.3 / ESP32-C3
+    name: ESP-IDF 5.5.3 / ESP32-C3 / ${{ matrix.app }}
+    needs: discover-apps
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.discover-apps.outputs.apps) }}
     container:
       image: espressif/idf:v5.5.3
     steps:
@@ -57,7 +77,7 @@ jobs:
       - name: Build firmware
         run: |
           . "$IDF_PATH/export.sh" >/dev/null
-          idf.py build
+          scripts/build-app.sh "${{ matrix.app }}" build
       - name: Package firmware
         id: package
         shell: bash
@@ -65,12 +85,12 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           . "$IDF_PATH/export.sh" >/dev/null
           version="$(git describe --tags --always --dirty)"
-          scripts/package-firmware.sh build dist "$version"
+          scripts/package-firmware.sh "${{ matrix.app }}" "build/${{ matrix.app }}" "dist/${{ matrix.app }}" "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Upload firmware
         uses: actions/upload-artifact@v7
         with:
-          name: firmware-${{ steps.package.outputs.version }}
-          path: dist/
+          name: firmware-${{ matrix.app }}-${{ steps.package.outputs.version }}
+          path: dist/${{ matrix.app }}/
           if-no-files-found: error
           retention-days: 14

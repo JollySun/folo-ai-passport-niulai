@@ -18,4 +18,4 @@ These media files are **not licensed under the repository's MIT License**. This 
 
 The repository stores only the processed 240-pixel preview frames and the two short 16 kHz mono PCM excerpts, not the downloaded news video. Confirm distribution rights before publishing source archives, binaries, screenshots, or recordings containing these assets.
 
-The on-device Chinese font subsets are covered separately in [the font notice](../FONTS.md).
+The on-device Chinese font subsets are covered separately in [the font notice](FONTS.md).

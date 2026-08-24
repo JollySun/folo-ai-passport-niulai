@@ -8,7 +8,7 @@
 
 - 自定义录音最多两份，每份最长 10 秒，16 kHz、16 bit、单声道。
 - 重置声音会删除两份自定义录音，无法撤销。
-- 代码许可证不代表拥有电影素材的再分发权；公开分发前阅读[素材说明](../assets/niulai/SOURCES.md)。
+- 代码许可证不代表拥有电影素材的再分发权；公开分发前阅读[素材说明](../apps/niulai/assets/SOURCES.md)。
 
 烧录命令见[构建说明](BUILDING.md)，也可以使用 FoloToy 的 [Web Flasher](https://ai-passport.folotoy.cn/tools/web-flasher) 选择下载的固件文件。
 

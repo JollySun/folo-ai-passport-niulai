@@ -8,11 +8,11 @@ English | [简体中文](README.zh_CN.md)
 An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy AI Passport. It combines character animation, dialogue playback, battery status, volume control, and user-recorded replacement voices in one small firmware image.
 
 <p align="center">
-  <img src="assets/niulai/home-ui-preview.png" alt="Redesigned Niu Lai home screen" width="300">
+  <img src="apps/niulai/assets/home-ui-preview.png" alt="Redesigned Niu Lai home screen" width="300">
 </p>
 
 > [!IMPORTANT]
-> This is an unofficial fan prototype. The MIT license covers the source code only. Movie images and audio may have separate rights; review [the asset source and distribution notice](assets/niulai/SOURCES.md) before redistributing firmware or media.
+> This is an unofficial fan prototype. The MIT license covers the source code only. Movie images and audio may have separate rights; review [the asset source and distribution notice](apps/niulai/assets/SOURCES.md) before redistributing firmware or media.
 
 ## Features
 
@@ -56,8 +56,8 @@ git clone https://github.com/JollySun/folo-ai-passport-niulai.git
 cd folo-ai-passport-niulai
 source "$HOME/esp/esp-idf/export.sh"
 scripts/test.sh
-idf.py build
-idf.py flash monitor
+scripts/build-app.sh niulai build
+scripts/build-app.sh niulai flash monitor
 ```
 
 Detailed setup, packaging, and flashing commands are in [Building](docs/BUILDING.md).
@@ -66,36 +66,34 @@ Detailed setup, packaging, and flashing commands are in [Building](docs/BUILDING
 
 ```text
 crates/passport-core/  Shared no_std signal and battery calculations
-apps/niulai/core/      Niu Lai-specific no_std state model
-components/passport-rust/ Temporary C ABI for the Rust migration
 components/bsp/       Board drivers and hardware constants
-main/                 UI, audio orchestration, and recording storage
-main/assets/niulai/   Firmware-ready RGB565 and PCM assets
-assets/niulai/        Human-viewable previews and provenance
-tests/                C ABI behavior tests for hardware-independent logic
+apps/niulai/          Niu Lai Rust model, C ABI, firmware, tests, and resources
+tests/                Shared host-side behavior tests
 scripts/              Test and firmware-packaging entry points
 docs/                 User, build, architecture, and hardware documentation
 ```
 
 The application keeps shared calculations in the `passport-core` Rust crate,
-Niu Lai state in `niulai-core`, persistent voice storage in
-`niulai_voice_store`, and board access behind the BSP interfaces. See
+all Niu Lai implementation and resources under `apps/niulai`, persistent voice
+storage behind `niulai_voice_store`, and board access behind the BSP interfaces. See
 [Architecture](docs/ARCHITECTURE.md) for the runtime and flash layout.
 
 ## Development
 
 ```bash
 scripts/test.sh
-idf.py build
-scripts/package-firmware.sh build dist dev
+scripts/build-app.sh niulai build
+scripts/package-firmware.sh niulai build/niulai dist/niulai dev
 ```
 
-Pull requests run host tests and a complete ESP-IDF build. Tags matching `v*` create a GitHub Release with full, app-only, bootloader, partition-table, and checksum artifacts.
+Pull requests run host tests and a complete ESP-IDF build for every discovered
+application. Tags matching `<app>/v*`, such as `niulai/v1.0.0`, create an
+independent GitHub Release with full, app-only, bootloader, partition-table, and checksum artifacts.
 
 Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and the [changelog](CHANGELOG.md) before submitting a change.
 
 ## License and acknowledgments
 
-Source code is licensed under the [MIT License](LICENSE). Media assets are not automatically covered by that license; see [SOURCES.md](assets/niulai/SOURCES.md).
+Source code is licensed under the [MIT License](LICENSE). Media assets are not automatically covered by that license; see [SOURCES.md](apps/niulai/assets/SOURCES.md).
 
 Built for the [FoloToy AI Passport](https://github.com/FoloToy/ai-passport) using [ESP-IDF](https://github.com/espressif/esp-idf), LVGL, `esp_lvgl_port`, `button`, and `esp_codec_dev`.

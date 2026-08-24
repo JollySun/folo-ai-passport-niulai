@@ -20,9 +20,9 @@ Rust 版本和组件由 `rust-toolchain.toml` 固定，Cargo 依赖由 `Cargo.lo
 git clone https://github.com/JollySun/folo-ai-passport-niulai.git
 cd folo-ai-passport-niulai
 source "$HOME/esp/esp-idf/export.sh"
-idf.py set-target esp32c3
+scripts/build-app.sh niulai set-target esp32c3
 scripts/test.sh
-idf.py build
+scripts/build-app.sh niulai build
 ```
 
 `sdkconfig.defaults` 已配置 ESP32-C3、8 MB Flash、USB Serial/JTAG、LVGL 和自定义分区表。`sdkconfig` 是本机构建产物，不应提交。
@@ -42,8 +42,8 @@ ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换 C 编译�
 开发时直接构建、烧录并打开日志：
 
 ```bash
-idf.py build
-idf.py flash monitor
+scripts/build-app.sh niulai build
+scripts/build-app.sh niulai flash monitor
 ```
 
 退出 monitor 使用 `Ctrl+]`。如果设备端口未被自动识别，添加 `-p /dev/your-port`。
@@ -51,7 +51,7 @@ idf.py flash monitor
 仅更新应用分区：
 
 ```bash
-idf.py app-flash monitor
+scripts/build-app.sh niulai app-flash monitor
 ```
 
 仅当设备已经包含本项目的分区表时才使用 `app-flash`。首次安装必须写入整机镜像，否则录音存储不可用。
@@ -61,7 +61,7 @@ idf.py app-flash monitor
 先完成构建，再运行：
 
 ```bash
-scripts/package-firmware.sh build dist dev
+scripts/package-firmware.sh niulai build/niulai dist/niulai dev
 ```
 
 `dist/` 将包含：
@@ -74,22 +74,22 @@ scripts/package-firmware.sh build dist dev
 使用 esptool 烧录整机镜像：
 
 ```bash
-esptool.py --chip esp32c3 write_flash 0x0 dist/folo-ai-passport-niulai-dev-full.bin
+esptool.py --chip esp32c3 write_flash 0x0 dist/niulai/folo-ai-passport-niulai-dev-full.bin
 ```
 
 `build/`、`target/`、`dist/`、`managed_components/` 和 `sdkconfig` 都是本地生成内容，已由 Git 忽略。
 
 ## CI 与发布
 
-- `.github/workflows/build.yml` 在拉取请求、`main` 推送和手动触发时执行主机测试、空白检查、完整固件构建和打包。
-- `.github/workflows/release.yml` 在推送 `v*` 标签时重复构建，并创建带校验和的 GitHub Release。
+- `.github/workflows/build.yml` 自动发现 `apps/` 下可构建的工具，在拉取请求、推送和手动触发时执行主机测试、空白检查，并分别完成固件构建和打包。
+- `.github/workflows/release.yml` 在推送 `<app>/v*` 标签时只构建对应应用，并创建带校验和的独立 GitHub Release。
 - Actions 依赖由 Dependabot 每月检查。
 
 创建发布前先更新 `CHANGELOG.md`，确认工作区干净并完成实机验收，然后推送带注释标签：
 
 ```bash
-git tag -a v1.0.0 -m "v1.0.0"
-git push origin v1.0.0
+git tag -a niulai/v1.0.0 -m "niulai v1.0.0"
+git push origin niulai/v1.0.0
 ```
 
 ## 实机验收

@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["*/v*"]
 
 permissions:
   contents: read
@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 35
     container:
       image: espressif/idf:v5.5.3
+    outputs:
+      app: ${{ steps.release.outputs.app }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -29,16 +32,33 @@ jobs:
         with:
           path: managed_components
           key: managed-components-idf-5.5.3-${{ hashFiles('dependencies.lock') }}
+      - name: Resolve application from tag
+        id: release
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          app="${tag%%/v*}"
+          version="${tag#*/}"
+          if [[ "$tag" != "$app/$version" ]] || ! scripts/list-apps.sh | grep -Fxq "$app"; then
+            echo "Release tag must be <app>/v<version> for a buildable application" >&2
+            exit 2
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build and package
         run: |
           . "$IDF_PATH/export.sh" >/dev/null
-          idf.py build
-          scripts/package-firmware.sh build dist "$GITHUB_REF_NAME"
+          scripts/build-app.sh "${{ steps.release.outputs.app }}" build
+          scripts/package-firmware.sh \
+            "${{ steps.release.outputs.app }}" \
+            "build/${{ steps.release.outputs.app }}" \
+            "dist/${{ steps.release.outputs.app }}" \
+            "${{ steps.release.outputs.version }}"
       - name: Upload release bundle
         uses: actions/upload-artifact@v7
         with:
-          name: release-${{ github.ref_name }}
-          path: dist/
+          name: release-${{ steps.release.outputs.app }}-${{ steps.release.outputs.version }}
+          path: dist/${{ steps.release.outputs.app }}/
           if-no-files-found: error
           retention-days: 7
 
@@ -58,7 +78,7 @@ jobs:
       - name: Download release bundle
         uses: actions/download-artifact@v8
         with:
-          name: release-${{ github.ref_name }}
+          name: release-${{ needs.build.outputs.app }}-${{ needs.build.outputs.version }}
           path: dist
       - name: Create GitHub release
         env:

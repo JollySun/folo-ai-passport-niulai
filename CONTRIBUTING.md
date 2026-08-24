@@ -7,9 +7,8 @@ Thanks for improving the Niu Lai firmware. Keep changes focused, reproducible, a
 1. Search existing issues and describe user-visible behavior before implementation details.
 2. Read [Architecture](docs/ARCHITECTURE.md) and [Hardware](docs/HARDWARE.md) for the affected area.
 3. Do not add movie or third-party media unless its redistribution terms are documented.
-4. Keep pure reusable behavior in `crates/passport-core`, Niu Lai-specific
-   Rust behavior in `apps/niulai`, product orchestration in `main`, and
-   reusable board access in `components/bsp`.
+4. Keep pure reusable behavior in `crates/passport-core`, all Niu Lai code and
+   resources in `apps/niulai`, and reusable board access in `components/bsp`.
 
 ## Local verification
 
@@ -17,7 +16,7 @@ Use ESP-IDF 5.5.3 and run:
 
 ```bash
 scripts/test.sh
-idf.py build
+scripts/build-app.sh niulai build
 git diff --check
 ```
 

@@ -2,20 +2,20 @@
 
 ## Structure
 
-- `apps/`: tool-specific Rust state and, as migration proceeds, independent firmware crates.
+- `apps/<app>/`: one independently buildable tool: Rust crate, ESP-IDF firmware,
+  host tests, and all tool-specific resources.
 - `crates/passport-core/`: hardware-independent Rust logic shared by multiple tools.
-- `main/`: current Niu Lai LVGL UI, audio orchestration, fonts, and persistent voice storage.
-- `components/passport-rust/`: temporary C ABI adapter used during the Rust migration.
 - `components/bsp/`: reusable display, button, audio, battery, and shared-I2C modules.
 - `components/bsp/include/bsp_pins.h`: single source of truth for pins and board constants.
 - `tests/`: host-side tests for hardware-independent module interfaces.
 - `scripts/`: stable test and packaging entry points used locally and in CI.
 - `docs/`: user, build, architecture, and hardware documentation.
 
-Keep tool-specific behavior under its `apps/` directory, current C orchestration in
-`main`, reusable pure logic in `crates/passport-core`, and reusable board access
-in `components/bsp`. Do not add an interface or adapter unless behavior really
-varies across that seam; migration adapters must document their deletion condition.
+Keep all tool-specific behavior, entry points, adapters, tests, and resources
+under its `apps/<app>/` directory. Keep reusable pure logic in
+`crates/passport-core` and reusable board access in `components/bsp`. The root
+CMake project only selects an application and must not contain tool behavior.
+Do not add an interface or adapter unless behavior really varies across that seam.
 
 ## Commands
 
@@ -23,9 +23,9 @@ Use ESP-IDF 5.5.3 and the Rust toolchain pinned by `rust-toolchain.toml`:
 
 ```bash
 scripts/test.sh
-idf.py build
-idf.py flash monitor
-scripts/package-firmware.sh build dist dev
+scripts/build-app.sh niulai build
+scripts/build-app.sh niulai flash monitor
+scripts/package-firmware.sh niulai build/niulai dist/niulai dev
 ```
 
 Treat host tests and a clean build as the minimum automated checks. Display, buttons, audio, recording, battery, and timing conclusions require physical-device validation.

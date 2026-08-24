@@ -1,8 +1,9 @@
 # Font notice
 
-The generated `main/niulai_font_12.c`, `main/niulai_font_16.c`, and
-`main/niulai_font_22.c` files contain only the Chinese glyphs used by the
-on-device interface.
+The generated `apps/niulai/firmware/niulai_font_12.c`,
+`apps/niulai/firmware/niulai_font_16.c`, and
+`apps/niulai/firmware/niulai_font_22.c` files contain only the Chinese glyphs
+used by the on-device interface.
 
 They were generated with `lv_font_conv` from Adobe Source Han Sans SC Regular,
 which is available under the SIL Open Font License 1.1:

@@ -1,7 +1,6 @@
 [workspace]
 members = [
-    "apps/niulai/core",
-    "components/passport-rust",
+    "apps/niulai",
     "crates/passport-core",
 ]
 resolver = "2"

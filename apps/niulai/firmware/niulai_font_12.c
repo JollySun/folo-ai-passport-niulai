@@ -4,7 +4,7 @@
 /*******************************************************************************
  * Size: 12 px
  * Bpp: 4
- * Opts: --font SourceHanSansSC-Regular.otf --symbols 牛来妈妈上下键确认长按对应可录音进入设置声音暂不正准备在保存已失败松开返回首页量增加减少自定义个使用默认恢复双击存储～！· --size 12 --bpp 4 --format lvgl --no-compress --no-kerning --lv-include lvgl.h --lv-font-name niulai_font_12 --lv-fallback lv_font_montserrat_12 -o main/niulai_font_12.c
+ * Opts: --font SourceHanSansSC-Regular.otf --symbols 牛来妈妈上下键确认长按对应可录音进入设置声音暂不正准备在保存已失败松开返回首页量增加减少自定义个使用默认恢复双击存储～！· --size 12 --bpp 4 --format lvgl --no-compress --no-kerning --lv-include lvgl.h --lv-font-name niulai_font_12 --lv-fallback lv_font_montserrat_12 -o apps/niulai/firmware/niulai_font_12.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

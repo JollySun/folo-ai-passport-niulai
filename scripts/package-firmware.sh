@@ -4,9 +4,21 @@
 set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-build_dir=${1:-build}
-output_dir=${2:-dist}
-version=${3:-dev}
+app=${1:-}
+build_dir=${2:-build/$app}
+output_dir=${3:-dist/$app}
+version=${4:-dev}
+
+case "$app" in
+    *[!a-z0-9_-]*|'')
+        printf 'Usage: %s <app> [build-dir] [output-dir] [version]\n' "$0" >&2
+        exit 2
+        ;;
+esac
+if [ ! -f "$project_dir/apps/$app/firmware/CMakeLists.txt" ]; then
+    printf 'Unknown application: %s\n' "$app" >&2
+    exit 2
+fi
 
 case "$version" in
     *[!A-Za-z0-9._-]*)
@@ -30,13 +42,13 @@ partition_image="$build_dir/partition_table/partition-table.bin"
 
 for image in "$app_image" "$bootloader_image" "$partition_image"; do
     if [ ! -f "$image" ]; then
-        printf 'Missing build artifact: %s\nRun idf.py build first.\n' "$image" >&2
+        printf 'Missing build artifact: %s\nRun scripts/build-app.sh %s build first.\n' "$image" "$app" >&2
         exit 1
     fi
 done
 
 mkdir -p "$output_dir"
-prefix="folo-ai-passport-niulai-$version"
+prefix="folo-ai-passport-$app-$version"
 
 cd "$project_dir"
 python -m esptool --chip esp32c3 merge_bin \

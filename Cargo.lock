@@ -3,17 +3,12 @@
 version = 3
 
 [[package]]
-name = "niulai-core"
+name = "niulai-app"
 version = "0.1.0"
+dependencies = [
+ "passport-core",
+]
 
 [[package]]
 name = "passport-core"
 version = "0.1.0"
-
-[[package]]
-name = "passport-rust"
-version = "0.1.0"
-dependencies = [
- "niulai-core",
- "passport-core",
-]

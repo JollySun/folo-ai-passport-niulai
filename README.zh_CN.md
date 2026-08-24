@@ -8,11 +8,11 @@
 这是一个运行在 ESP32-C3 FoloToy AI Passport 上的离线“牛来”互动播放器，集成角色动画、对白播放、电量显示、音量设置和自定义录音替换。
 
 <p align="center">
-  <img src="assets/niulai/home-ui-preview.png" alt="牛来新版首页预览" width="300">
+  <img src="apps/niulai/assets/home-ui-preview.png" alt="牛来新版首页预览" width="300">
 </p>
 
 > [!IMPORTANT]
-> 本项目是非官方爱好者原型。MIT 许可证只覆盖源代码，不自动授权电影图片和音频。重新分发固件或素材前，请先阅读[素材来源与分发提示](assets/niulai/SOURCES.md)。
+> 本项目是非官方爱好者原型。MIT 许可证只覆盖源代码，不自动授权电影图片和音频。重新分发固件或素材前，请先阅读[素材来源与分发提示](apps/niulai/assets/SOURCES.md)。
 
 ## 功能
 
@@ -56,8 +56,8 @@ git clone https://github.com/JollySun/folo-ai-passport-niulai.git
 cd folo-ai-passport-niulai
 source "$HOME/esp/esp-idf/export.sh"
 scripts/test.sh
-idf.py build
-idf.py flash monitor
+scripts/build-app.sh niulai build
+scripts/build-app.sh niulai flash monitor
 ```
 
 完整环境安装、固件打包和烧录命令见[构建说明](docs/BUILDING.md)。
@@ -66,35 +66,32 @@ idf.py flash monitor
 
 ```text
 crates/passport-core/  可共用的 no_std 信号与电池计算
-apps/niulai/core/      牛来专用的 no_std 状态机
-components/passport-rust/ Rust 迁移期间使用的 C ABI
 components/bsp/       板级驱动和硬件常量
-main/                 UI、音频编排和录音存储
-main/assets/niulai/   固件使用的 RGB565 与 PCM 素材
-assets/niulai/        可预览素材和来源记录
-tests/                不依赖硬件的 C ABI 行为测试
+apps/niulai/          牛来状态、C ABI、固件、测试和全部资源
+tests/                共用的主机行为测试
 scripts/              测试与固件打包入口
 docs/                 使用、构建、架构和硬件文档
 ```
 
-共用计算逻辑位于 Rust `passport-core` crate，牛来状态位于
-`niulai-core`，持久录音位于 `niulai_voice_store`，硬件访问统一经过 BSP
+共用计算逻辑位于 Rust `passport-core` crate，所有牛来实现与资源均位于
+`apps/niulai`，持久录音位于 `niulai_voice_store`，硬件访问统一经过 BSP
 接口。运行任务与 Flash 布局见[架构说明](docs/ARCHITECTURE.md)。
 
 ## 开发
 
 ```bash
 scripts/test.sh
-idf.py build
-scripts/package-firmware.sh build dist dev
+scripts/build-app.sh niulai build
+scripts/package-firmware.sh niulai build/niulai dist/niulai dev
 ```
 
-每个拉取请求都会执行主机测试和完整 ESP-IDF 构建。推送 `v*` 标签后，发布工作流会生成整机、应用、bootloader、分区表和校验和文件。
+每个拉取请求都会执行主机测试，并为所有发现的应用执行完整 ESP-IDF
+构建。推送 `<app>/v*` 标签（例如 `niulai/v1.0.0`）后，该应用会独立发布整机、应用、bootloader、分区表和校验和文件。
 
 提交改动前请阅读[贡献指南](CONTRIBUTING.md)、[安全策略](SECURITY.md)和[变更记录](CHANGELOG.md)。
 
 ## 许可证与致谢
 
-源代码使用 [MIT License](LICENSE)。媒体素材不自动适用该许可证，详见 [SOURCES.md](assets/niulai/SOURCES.md)。
+源代码使用 [MIT License](LICENSE)。媒体素材不自动适用该许可证，详见 [SOURCES.md](apps/niulai/assets/SOURCES.md)。
 
 项目面向 [FoloToy AI Passport](https://github.com/FoloToy/ai-passport)，使用 [ESP-IDF](https://github.com/espressif/esp-idf)、LVGL、`esp_lvgl_port`、`button` 和 `esp_codec_dev` 构建。
