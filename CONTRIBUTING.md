@@ -27,9 +27,20 @@ Hardware-facing changes must also be tested on a FoloToy AI Passport. Record the
 - C uses four-space indentation, K&R braces, `snake_case`, `s_` for file-local state, and `bsp_` for BSP interfaces.
 - Rust is formatted with `rustfmt`; keep `passport-core` free of ESP-IDF and allocation unless a measured requirement justifies it.
 - Keep hardware constants in `components/bsp_board/include/bsp_pins.h`.
-- Keep blocking I/O out of button callbacks and protect cross-task LVGL access with `bsp_lvgl_lock()`.
+- Treat button callbacks as `esp_timer` callbacks: keep them bounded and never perform audio, Flash, or other long-running work in them.
+- Every `Ui`/LVGL call must either run in the LVGL task or be enclosed by `display::lock()`/`bsp_lvgl_lock()`; application state methods must not contain hidden UI writes.
+- When both locks are needed, acquire the display lock before the application-state mutex. Never wait for the display lock while holding application state.
 - Prefer tests at a module interface over checks against implementation text.
 - Update user documentation and `CHANGELOG.md` when behavior changes.
+
+For any UI, callback, task, mutex, or FFI change, record these hardware checks in the pull request:
+
+1. Monitor the 115200-baud serial log for at least three minutes, which exceeds the known watchdog regression window.
+2. Repeatedly exercise short, long, release, and double-button events where applicable.
+3. Exercise playback, animation, recording, saving, reset, and battery refresh paths affected by the change.
+4. Confirm that the log contains no `task_wdt`, LVGL assertion, panic, or reboot.
+
+See the [LVGL cross-task freeze incident](docs/incidents/2026-08-25-lvgl-cross-task-freeze.md) for why these checks are required.
 
 ## Commits and pull requests
 

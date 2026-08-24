@@ -48,11 +48,32 @@ implementation 继续留在 `apps/niulai`。当第二个应用出现相同需求
 ## 运行任务
 
 - LVGL 任务负责绘制和动画 timer。
-- button 组件任务只派发轻量事件；回调不能执行阻塞式音频或 Flash 操作。
+- button 组件通过 ESP-IDF `esp_timer` 任务轮询 ADC 并同步调用应用回调；
+  回调必须短小，不能执行音频、Flash 或其他长耗时操作。
 - `niulai_audio` 任务串行执行播放、录音、停止和重置命令。
 - `niulai_battery` 任务每秒刷新读数，I2C 故障时继续重试。
 
-LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时必须持有 `bsp_lvgl_lock()`，音频读写只在音频任务执行。
+### LVGL 并发约束
+
+LVGL 不是线程安全的。以下规则是运行时不变量，不因应用数量增加而改变：
+
+1. `Ui`/LVGL 对象只能在 LVGL task 中访问，或在持有
+   `display::lock()`（C 侧为 `bsp_lvgl_lock()`）期间访问。
+2. button、audio、battery 和其他 `esp_timer`/FreeRTOS 回调不得在取得
+   display lock 前调用任何 UI 方法，包括看似简单的图片、文本、可见性和样式更新。
+3. 应用状态方法只更新状态，不得隐藏 UI 副作用。由持有 display lock 的
+   render 阶段把状态投影到 UI。
+4. 同时需要 display lock 和应用状态 mutex 时，固定先取得 display lock，
+   再取得状态 mutex；不得持有状态 mutex 再等待 display lock。
+5. button/`esp_timer` 回调优先只做有界状态更新或投递命令。现有同步 render
+   必须先释放状态 mutex，再取得 display lock；需要等待、播放、录音、存储
+   或复杂渲染时，转交专用任务处理。
+
+违反第 1、2 条可能在 `lv_inv_area()` 检测到 `rendering_in_progress` 时进入
+LVGL 默认断言死循环，随后表现为 `esp_timer` task watchdog。完整案例见
+[2026-08-25 LVGL 跨任务访问死机复盘](incidents/2026-08-25-lvgl-cross-task-freeze.md)。
+
+音频读写只在音频任务执行。
 
 ## Niu Lai Flash 布局
 

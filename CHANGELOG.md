@@ -18,6 +18,12 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
   the BSP build into independently selectable hardware modules.
 - Moved the shared PCM and battery C interface into `passport-core`.
 
+### Fixed
+
+- Prevented button callbacks running in the `esp_timer` task from modifying
+  LVGL objects before acquiring the display lock, which could trigger an
+  `lv_inv_area()` assertion and leave the device in a watchdog loop.
+
 ## [0.0.2] - 2026-08-24
 
 ### Changed
