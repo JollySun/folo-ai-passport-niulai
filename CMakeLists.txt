@@ -15,6 +15,9 @@ if(NOT EXISTS "${PASSPORT_APP_COMPONENT}/CMakeLists.txt")
         "Application '${PASSPORT_APP}' has no firmware component at ${PASSPORT_APP_COMPONENT}")
 endif()
 list(APPEND EXTRA_COMPONENT_DIRS "${PASSPORT_APP_COMPONENT}")
+# Build only the selected firmware module and the transitive dependencies it
+# names. Without this, ESP-IDF builds every reusable BSP capability.
+set(COMPONENTS "firmware")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(FoloToy-AI-Passport)

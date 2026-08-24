@@ -18,6 +18,7 @@ for manifest in "$project_dir"/apps/*/Cargo.toml; do
     [ -f "$manifest" ] || continue
     app_dir=${manifest%/Cargo.toml}
     [ -f "$app_dir/firmware/CMakeLists.txt" ] || continue
+    [ -f "$app_dir/sdkconfig.defaults" ] || continue
     [ -x "$app_dir/test.sh" ] || continue
     app=${app_dir##*/}
 

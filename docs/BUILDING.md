@@ -25,7 +25,9 @@ scripts/test.sh
 scripts/build-app.sh niulai build
 ```
 
-`sdkconfig.defaults` 已配置 ESP32-C3、8 MB Flash、USB Serial/JTAG、LVGL 和自定义分区表。`sdkconfig` 是本机构建产物，不应提交。
+根 `sdkconfig.defaults` 配置 ESP32-C3、8 MB Flash 和 USB Serial/JTAG；
+`apps/<app>/sdkconfig.defaults` 保存应用自己的 UI 与分区策略。生成配置写入
+`build/<app>/sdkconfig`，不会在切换工具时共用。
 
 ## 主机测试
 
@@ -44,6 +46,13 @@ ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换 C 编译�
 ```bash
 scripts/build-app.sh niulai build
 scripts/build-app.sh niulai flash monitor
+```
+
+最小诊断工具不包含显示、LVGL 或音频，可独立构建和烧录：
+
+```bash
+scripts/build-app.sh diagnostics build
+scripts/build-app.sh diagnostics flash monitor
 ```
 
 退出 monitor 使用 `Ctrl+]`。如果设备端口未被自动识别，添加 `-p /dev/your-port`。
@@ -91,6 +100,8 @@ esptool.py --chip esp32c3 write_flash 0x0 dist/niulai/folo-ai-passport-niulai-de
 git tag -a niulai/v1.0.0 -m "niulai v1.0.0"
 git push origin niulai/v1.0.0
 ```
+
+其他工具替换标签前缀即可，例如 `diagnostics/v1.0.0`。
 
 ## 实机验收
 

@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "diagnostics-app"
+version = "0.1.0"
+dependencies = [
+ "passport-core",
+]
+
+[[package]]
 name = "niulai-app"
 version = "0.1.0"
 dependencies = [

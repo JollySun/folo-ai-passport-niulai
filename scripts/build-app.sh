@@ -22,5 +22,15 @@ if [ ! -f "$project_dir/apps/$app/firmware/CMakeLists.txt" ]; then
     "$project_dir/scripts/list-apps.sh" >&2
     exit 2
 fi
+app_defaults="$project_dir/apps/$app/sdkconfig.defaults"
+if [ ! -f "$app_defaults" ]; then
+    printf 'Application %s has no sdkconfig.defaults\n' "$app" >&2
+    exit 2
+fi
 
-exec idf.py -B "$project_dir/build/$app" -D PASSPORT_APP="$app" "$@"
+exec idf.py \
+    -B "$project_dir/build/$app" \
+    -D PASSPORT_APP="$app" \
+    -D SDKCONFIG="$project_dir/build/$app/sdkconfig" \
+    -D "SDKCONFIG_DEFAULTS=$project_dir/sdkconfig.defaults;$app_defaults" \
+    "$@"

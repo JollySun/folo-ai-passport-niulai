@@ -28,5 +28,4 @@ run_test() {
 }
 
 run_test niulai_model apps/niulai/firmware apps/niulai/tests/test_niulai_model.c
-run_test niulai_audio_math apps/niulai/firmware apps/niulai/tests/test_niulai_audio_math.c
-run_test bsp_battery_math components/bsp/include tests/test_bsp_battery_math.c
+run_test passport_core_ffi crates/passport-core/include tests/test_passport_core_ffi.c

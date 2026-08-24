@@ -66,7 +66,8 @@ scripts/build-app.sh niulai flash monitor
 
 ```text
 crates/passport-core/  可共用的 no_std 信号与电池计算
-components/bsp/       板级驱动和硬件常量
+components/bsp_*/     可独立选择的板级硬件模块
+apps/diagnostics/     最小 I2C 与电池诊断固件
 apps/niulai/          牛来状态、C ABI、固件、测试和全部资源
 tests/                共用的主机行为测试
 scripts/              测试与固件打包入口
@@ -83,10 +84,13 @@ docs/                 使用、构建、架构和硬件文档
 scripts/test.sh
 scripts/build-app.sh niulai build
 scripts/package-firmware.sh niulai build/niulai dist/niulai dev
+scripts/build-app.sh diagnostics build
 ```
 
 每个拉取请求都会执行主机测试，并为所有发现的应用执行完整 ESP-IDF
 构建。推送 `<app>/v*` 标签（例如 `niulai/v1.0.0`）后，该应用会独立发布整机、应用、bootloader、分区表和校验和文件。
+
+诊断工具可使用 `diagnostics/v1.0.0` 标签走同一套独立发布流程。
 
 提交改动前请阅读[贡献指南](CONTRIBUTING.md)、[安全策略](SECURITY.md)和[变更记录](CHANGELOG.md)。
 

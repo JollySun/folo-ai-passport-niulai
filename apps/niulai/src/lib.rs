@@ -5,8 +5,10 @@
 
 #[cfg(not(test))]
 use core::panic::PanicInfo;
-use core::slice;
-use passport_core::{battery_percent_from_voltage, scale_pcm16};
+
+// Every firmware Rust archive bundles the shared C interface from
+// passport-core. C callers resolve those symbols from the selected app archive.
+pub use passport_core as shared_core;
 
 pub const DEFAULT_VOLUME: u8 = 85;
 pub const VOLUME_STEP: u8 = 5;
@@ -208,26 +210,6 @@ unsafe extern "C" fn niulai_model_apply(model: *mut CModel, input: i32) -> i32 {
     model.return_page = page_to_c(state.return_page());
     model.volume = state.volume();
     action_to_c(action)
-}
-
-#[no_mangle]
-unsafe extern "C" fn niulai_scale_pcm16(
-    output: *mut i16,
-    input: *const i16,
-    sample_count: usize,
-    volume: u8,
-) {
-    if sample_count == 0 || output.is_null() || input.is_null() {
-        return;
-    }
-    let output = slice::from_raw_parts_mut(output, sample_count);
-    let input = slice::from_raw_parts(input, sample_count);
-    scale_pcm16(output, input, volume);
-}
-
-#[no_mangle]
-extern "C" fn bsp_battery_percent_from_voltage(millivolts: i32) -> i32 {
-    battery_percent_from_voltage(millivolts)
 }
 
 #[cfg(test)]

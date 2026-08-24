@@ -8,7 +8,7 @@ Thanks for improving the Niu Lai firmware. Keep changes focused, reproducible, a
 2. Read [Architecture](docs/ARCHITECTURE.md) and [Hardware](docs/HARDWARE.md) for the affected area.
 3. Do not add movie or third-party media unless its redistribution terms are documented.
 4. Keep pure reusable behavior in `crates/passport-core`, all Niu Lai code and
-   resources in `apps/niulai`, and reusable board access in `components/bsp`.
+   resources in `apps/niulai`, and reusable board access in `components/bsp_*`.
 
 ## Local verification
 
@@ -26,7 +26,7 @@ Hardware-facing changes must also be tested on a FoloToy AI Passport. Record the
 
 - C uses four-space indentation, K&R braces, `snake_case`, `s_` for file-local state, and `bsp_` for BSP interfaces.
 - Rust is formatted with `rustfmt`; keep `passport-core` free of ESP-IDF and allocation unless a measured requirement justifies it.
-- Keep hardware constants in `components/bsp/include/bsp_pins.h`.
+- Keep hardware constants in `components/bsp_board/include/bsp_pins.h`.
 - Keep blocking I/O out of button callbacks and protect cross-task LVGL access with `bsp_lvgl_lock()`.
 - Prefer tests at a module interface over checks against implementation text.
 - Update user documentation and `CHANGELOG.md` when behavior changes.

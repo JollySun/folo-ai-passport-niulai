@@ -6,12 +6,16 @@
 
 ```text
 根 CMake PASSPORT_APP 选择器
-  └─ apps/niulai/firmware/app_main
-      └─ niulai_app_start
-          ├─ apps/niulai        Rust 牛来状态、动作决策与专属 C ABI
-          ├─ passport-core      Rust 共用 PCM 与电池计算
-          ├─ niulai_voice_store 双 Bank 录音持久化
-          └─ components/bsp     显示、按键、音频、电池、共享 I2C
+  ├─ apps/niulai/firmware/app_main
+  │   └─ niulai_app_start
+  │       ├─ apps/niulai        Rust 牛来状态、动作决策与专属 C ABI
+  │       ├─ passport-core      Rust 共用 PCM、电池计算与 C interface
+  │       ├─ niulai_voice_store 双 Bank 录音持久化
+  │       └─ bsp_* modules      显示、LVGL、按键、音频、电池、I2C
+  └─ apps/diagnostics/firmware/app_main
+      ├─ passport-core          Rust 共用电池计算与 C interface
+      ├─ bsp_i2c
+      └─ bsp_battery
 ```
 
 ## 模块
@@ -19,16 +23,27 @@
 | 模块 | 接口 | 职责 |
 | --- | --- | --- |
 | `apps/niulai` | `Model::apply` 和现有 C 头文件 | 牛来页面、返回页、音量、动作映射和迁移期 C ABI；`no_std` 且可在主机测试 |
-| `passport-core` | Rust 纯函数 | 多工具可共用的 PCM 音量和电池估算；`no_std` 且可在主机测试 |
+| `apps/diagnostics` | `diagnostics_voltage_percent` 和串口日志 | 最小 I2C 扫描、电量计与共享 Rust core 验证 |
+| `passport-core` | Rust 纯函数和 `passport_core.h` | 多工具可共用的 PCM 音量与电池估算；`no_std` 且可在主机测试 |
 | `niulai_app` | `niulai_app_start` | LVGL 页面、动画、任务、按键编排和故障降级 |
 | `niulai_voice_store` | `init/read/begin/append/finish/reset` | 录音流式写入、校验和双 Bank 原子切换 |
-| `components/bsp` | `bsp_*` 头文件 | 隐藏 GPIO、I2C、I2S、SPI、ADC 和器件初始化细节 |
+| `components/bsp_*` | 各自的 `bsp_*` 头文件 | 按能力隐藏 GPIO、I2C、I2S、SPI、ADC 和器件初始化细节 |
 
-硬件常量只在 `components/bsp/include/bsp_pins.h` 定义。应用不得复制 GPIO、总线地址或屏幕参数。
+硬件常量只在 `components/bsp_board/include/bsp_pins.h` 定义。应用不得复制 GPIO、总线地址或屏幕参数。`bsp_audio` 和 `bsp_battery` 依赖 `bsp_i2c`，`bsp_lvgl` 依赖 `bsp_display`；根 CMake 只构建所选 firmware module 的传递依赖。
 
 根 CMake 工程只负责根据 `PASSPORT_APP` 把对应 `apps/<app>/firmware`
 注册为 ESP-IDF module。每个应用拥有自己的 Rust 静态库和 C ABI；应用
 之间只通过 `passport-core` 源码与 BSP interface 共享行为，不共享应用 adapter。
+公共 `sdkconfig.defaults` 只保存板级默认值，每个应用的配置和分区策略位于
+`apps/<app>/sdkconfig.defaults` 及应用 firmware 目录；生成的 sdkconfig 位于
+`build/<app>/sdkconfig`，切换工具不会污染其他构建。
+
+## 复用决策
+
+diagnostics 只需要 I2C、电池和 `passport-core`，不需要音频、LVGL、按键或
+录音存储。因此当前没有第二个音频任务或双 Bank 存储 adapter，相关
+implementation 继续留在 `apps/niulai`。当第二个应用出现相同需求时，再以
+实际调用方式设计 interface，避免提前引入回调和配置参数组成的浅 module。
 
 ## 运行任务
 
@@ -39,7 +54,7 @@
 
 LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时必须持有 `bsp_lvgl_lock()`，音频读写只在音频任务执行。
 
-## Flash 布局
+## Niu Lai Flash 布局
 
 | 分区 | 偏移 | 大小 | 用途 |
 | --- | ---: | ---: | --- |

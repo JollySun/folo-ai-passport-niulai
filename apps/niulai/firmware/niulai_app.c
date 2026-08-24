@@ -3,7 +3,7 @@
 
 #include "niulai_app.h"
 
-#include "niulai_audio_math.h"
+#include "passport_core.h"
 #include "niulai_fonts.h"
 #include "niulai_model.h"
 #include "niulai_voice_store.h"
@@ -11,6 +11,7 @@
 #include "bsp_battery.h"
 #include "bsp_button.h"
 #include "bsp_display.h"
+#include "bsp_lvgl.h"
 #include "bsp_i2c.h"
 #include "bsp_pins.h"
 #include "freertos/FreeRTOS.h"
@@ -447,7 +448,7 @@ static audio_command_t play_voice(audio_command_t command)
         } else {
             memcpy(raw, default_data + offset, bytes);
         }
-        niulai_scale_pcm16(scaled, raw, bytes / 2, s_volume);
+        passport_pcm16_scale(scaled, raw, bytes / 2, s_volume);
         if (bsp_audio_write(scaled, bytes) != ESP_OK) {
             ESP_LOGE(TAG, "Audio playback failed");
             return AUDIO_CMD_STOP;

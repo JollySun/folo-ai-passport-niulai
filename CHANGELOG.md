@@ -12,6 +12,11 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Moved the complete Niu Lai application, C ABI, tests, and media under
   `apps/niulai`; application selection and releases are now independent of the
   shared Rust and BSP modules.
+- Added a minimal independently released diagnostics application that reuses
+  only the shared Rust core, I2C, and battery modules.
+- Split application sdkconfig/partition policy from board defaults and divided
+  the BSP build into independently selectable hardware modules.
+- Moved the shared PCM and battery C interface into `passport-core`.
 
 ## [0.0.2] - 2026-08-24
 

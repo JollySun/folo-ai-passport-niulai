@@ -1,0 +1,2 @@
+# Diagnostics uses ESP-IDF's default partition layout and needs no UI or audio
+# configuration beyond the shared board defaults.

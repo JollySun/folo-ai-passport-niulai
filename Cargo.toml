@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "apps/diagnostics",
     "apps/niulai",
     "crates/passport-core",
 ]

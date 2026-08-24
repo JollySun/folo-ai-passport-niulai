@@ -66,7 +66,8 @@ Detailed setup, packaging, and flashing commands are in [Building](docs/BUILDING
 
 ```text
 crates/passport-core/  Shared no_std signal and battery calculations
-components/bsp/       Board drivers and hardware constants
+components/bsp_*/     Independently selectable board hardware modules
+apps/diagnostics/     Minimal I2C and battery diagnostic firmware
 apps/niulai/          Niu Lai Rust model, C ABI, firmware, tests, and resources
 tests/                Shared host-side behavior tests
 scripts/              Test and firmware-packaging entry points
@@ -84,11 +85,14 @@ storage behind `niulai_voice_store`, and board access behind the BSP interfaces.
 scripts/test.sh
 scripts/build-app.sh niulai build
 scripts/package-firmware.sh niulai build/niulai dist/niulai dev
+scripts/build-app.sh diagnostics build
 ```
 
 Pull requests run host tests and a complete ESP-IDF build for every discovered
 application. Tags matching `<app>/v*`, such as `niulai/v1.0.0`, create an
 independent GitHub Release with full, app-only, bootloader, partition-table, and checksum artifacts.
+
+`diagnostics/v1.0.0` uses the same release path for the standalone diagnostics tool.
 
 Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and the [changelog](CHANGELOG.md) before submitting a change.
 

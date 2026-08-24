@@ -1,0 +1,13 @@
+# Niu Lai embeds full-screen RGB565 frames and PCM audio, so it needs a
+# larger factory partition than ESP-IDF's default layout.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="apps/niulai/firmware/partitions.csv"
+
+# --- LVGL ---
+CONFIG_LV_COLOR_DEPTH_16=y
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_22=y
+# LVGL has a dedicated allocator. The current interface needs 24 KB; measure
+# memory before increasing this value because ESP32-C3 has no PSRAM.
+CONFIG_LV_MEM_SIZE_KILOBYTES=24
