@@ -1,7 +1,5 @@
 idf_component_register(
-    SRCS "app_main.c"
-    INCLUDE_DIRS "."
-    REQUIRES bsp_i2c bsp_battery
+    REQUIRES rust_app_entry bsp_runtime bsp_i2c bsp_battery
 )
 
 include("${PROJECT_DIR}/cmake/passport_rust_app.cmake")

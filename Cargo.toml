@@ -1,8 +1,7 @@
 [workspace]
 members = [
-    "apps/diagnostics",
-    "apps/niulai",
-    "crates/passport-core",
+    "apps/*",
+    "crates/*",
 ]
 resolver = "2"
 

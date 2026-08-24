@@ -5,7 +5,6 @@
 // 移植自 trae_card/components/platform/platform_esp32/src/battery_cw2017.c
 // (去掉了电池 profile 写入部分:开源硬件用户电池各异,用芯片自带 Li-Poly profile 更通用)
 #include "bsp_battery.h"
-#include "passport_core.h"
 #include "bsp_i2c.h"
 #include "bsp_pins.h"
 #include "esp_log.h"
@@ -21,7 +20,6 @@ static const char *TAG = "bsp_batt";
 #define CW_REG_CONFIG    0x08   // 上电 0xF0;按 0x30 -> 0x00 两步唤醒/重启
 
 static i2c_master_dev_handle_t s_dev;
-static bool s_voltage_fallback_logged;
 
 static int cw_read(uint8_t reg, uint8_t *buf, size_t n) {
     if (!s_dev) return -1;
@@ -89,18 +87,7 @@ esp_err_t bsp_battery_init(void) {
 int bsp_battery_soc(void) {
     uint8_t b[2] = { 0 };
     if (cw_read(CW_REG_SOC_H, b, 2) != 0) return -1;
-    int soc = b[0];                       // 高字节即整数百分比
-    int mv = bsp_battery_mv();
-    if (soc <= 100 && !(soc == 0 && mv >= 3300)) return soc;
-    if (mv < 2500 || mv > 4500) return -1;
-
-    int fallback = passport_battery_percent_from_voltage(mv);
-    if (!s_voltage_fallback_logged) {
-        ESP_LOGW(TAG, "SOC 未就绪(raw=%d),按电压 %dmV 临时估算为 %d%%",
-                 soc, mv, fallback);
-        s_voltage_fallback_logged = true;
-    }
-    return fallback;
+    return b[0];                           // 高字节即整数百分比
 }
 
 int bsp_battery_mv(void) {

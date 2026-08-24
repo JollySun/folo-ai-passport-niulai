@@ -11,3 +11,4 @@ doctest = false
 
 [dependencies]
 passport-core = { path = "../../crates/passport-core" }
+passport-platform = { path = "../../crates/passport-platform" }

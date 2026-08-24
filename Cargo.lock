@@ -7,6 +7,7 @@ name = "diagnostics-app"
 version = "0.1.0"
 dependencies = [
  "passport-core",
+ "passport-platform",
 ]
 
 [[package]]
@@ -14,8 +15,16 @@ name = "niulai-app"
 version = "0.1.0"
 dependencies = [
  "passport-core",
+ "passport-platform",
 ]
 
 [[package]]
 name = "passport-core"
 version = "0.1.0"
+
+[[package]]
+name = "passport-platform"
+version = "0.1.0"
+dependencies = [
+ "passport-core",
+]

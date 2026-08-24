@@ -10,6 +10,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cd "$project_dir"
 cargo fmt --all --check
 cargo test --locked --workspace --target-dir "$test_dir/cargo-target"
+scripts/check-architecture.sh
 
 ${CC:-cc} -std=c11 -Wall -Wextra -Werror \
     -I"components/bsp_board/include" \
