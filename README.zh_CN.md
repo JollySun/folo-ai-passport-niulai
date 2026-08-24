@@ -2,12 +2,14 @@
 
 [English](README.md) | 简体中文
 
-[![CI](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/ci.yml/badge.svg)](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/ci.yml)
+[![CI](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/build.yml/badge.svg)](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/code%20license-MIT-green.svg)](LICENSE)
 
 这是一个运行在 ESP32-C3 FoloToy AI Passport 上的离线“牛来”互动播放器，集成角色动画、对白播放、电量显示、音量设置和自定义录音替换。
 
-![牛来新版首页预览](assets/niulai/home-ui-preview.png)
+<p align="center">
+  <img src="assets/niulai/home-ui-preview.png" alt="牛来新版首页预览" width="300">
+</p>
 
 > [!IMPORTANT]
 > 本项目是非官方爱好者原型。MIT 许可证只覆盖源代码，不自动授权电影图片和音频。重新分发固件或素材前，请先阅读[素材来源与分发提示](assets/niulai/SOURCES.md)。

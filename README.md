@@ -2,12 +2,14 @@
 
 English | [简体中文](README.zh_CN.md)
 
-[![CI](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/ci.yml/badge.svg)](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/ci.yml)
+[![CI](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/build.yml/badge.svg)](https://github.com/JollySun/folo-ai-passport-niulai/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/code%20license-MIT-green.svg)](LICENSE)
 
 An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy AI Passport. It combines character animation, dialogue playback, battery status, volume control, and user-recorded replacement voices in one small firmware image.
 
-![Redesigned Niu Lai home screen](assets/niulai/home-ui-preview.png)
+<p align="center">
+  <img src="assets/niulai/home-ui-preview.png" alt="Redesigned Niu Lai home screen" width="300">
+</p>
 
 > [!IMPORTANT]
 > This is an unofficial fan prototype. The MIT license covers the source code only. Movie images and audio may have separate rights; review [the asset source and distribution notice](assets/niulai/SOURCES.md) before redistributing firmware or media.
