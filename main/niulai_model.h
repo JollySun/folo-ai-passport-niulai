@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 typedef enum {
     NIULAI_PAGE_HOME,
     NIULAI_PAGE_CALF,
@@ -29,7 +31,7 @@ typedef enum {
 typedef struct {
     niulai_page_t page;
     niulai_page_t return_page;
-    unsigned char volume;
+    uint8_t volume;
 } niulai_model_t;
 
 #define NIULAI_DEFAULT_VOLUME 85

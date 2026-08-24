@@ -1,12 +1,11 @@
-# Documentation
+# 文档索引
 
-Documentation index for the FoloToy AI Passport repository.
+| 文档 | 面向对象 | 内容 |
+| --- | --- | --- |
+| [USER_GUIDE.md](USER_GUIDE.md) | 使用者 | 安装、按键、录音、设置与故障排查 |
+| [BUILDING.md](BUILDING.md) | 开发者/维护者 | 环境、测试、构建、烧录与发布打包 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 贡献者 | 模块接口、运行任务、Flash 和资源布局 |
+| [HARDWARE.md](HARDWARE.md) | 驱动开发者 | 已确认硬件、引脚、约束与实机验收 |
+| [../assets/niulai/SOURCES.md](../assets/niulai/SOURCES.md) | 发布者 | 媒体素材来源与分发限制 |
 
-| Document | Description |
-| --- | --- |
-| [AI_HARDWARE_DEVELOPMENT_GUIDE.md](AI_HARDWARE_DEVELOPMENT_GUIDE.md) | Complete hardware context and troubleshooting: pin map, panel initialization, ADC thresholds, I2C addressing rules, audio clocks, memory, and the acceptance matrix by change type (English) |
-| [../assets/niulai/SOURCES.md](../assets/niulai/SOURCES.md) | Sources and distribution notice for the Niu Lai promotional assets |
-| [../AGENTS.md](../AGENTS.md) | Working rules for AI agents: coding style, build/test commands, commit and pull-request guidelines |
-| [../README.md](../README.md) | Project overview, hardware capability contract, build/run baseline, and acceptance format (English / 简体中文) |
-
-The README is bilingual; the hardware development guide is currently English-only.
+项目概览见[中文 README](../README.zh_CN.md)，协作流程见[贡献指南](../CONTRIBUTING.md)。

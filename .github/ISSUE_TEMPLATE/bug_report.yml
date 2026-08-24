@@ -1,0 +1,49 @@
+name: Bug report
+description: Report reproducible firmware or hardware behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include copyrighted media or sensitive recordings.
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version
+      placeholder: Release tag or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware revision
+      placeholder: Board revision, if known
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: Tell us exactly which buttons were pressed and in what order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Paste serial logs as text when possible.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed personal recordings and sensitive data.
+          required: true

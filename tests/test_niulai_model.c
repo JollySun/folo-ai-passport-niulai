@@ -38,9 +38,14 @@ int main(void)
     assert(niulai_model_apply(&model, NIULAI_INPUT_DOWN_CLICK) == NIULAI_ACTION_PLAY_NIULAI);
     assert(model.page == NIULAI_PAGE_MOTHER);
     assert(niulai_model_apply(&model, NIULAI_INPUT_DOWN_CLICK) == NIULAI_ACTION_PLAY_NIULAI);
+    assert(niulai_model_apply(&model, NIULAI_INPUT_OK_CLICK) == NIULAI_ACTION_NONE);
+    assert(model.page == NIULAI_PAGE_SETTINGS);
+    assert(niulai_model_apply(&model, NIULAI_INPUT_OK_CLICK) == NIULAI_ACTION_NONE);
+    assert(model.page == NIULAI_PAGE_MOTHER);
 
     assert(niulai_model_apply(&model, NIULAI_INPUT_OK_LONG) == NIULAI_ACTION_STOP_AUDIO);
     assert(model.page == NIULAI_PAGE_HOME);
+    assert(model.return_page == NIULAI_PAGE_HOME);
     assert(niulai_model_apply(&model, NIULAI_INPUT_NONE) == NIULAI_ACTION_NONE);
     assert(model.page == NIULAI_PAGE_HOME);
     return 0;

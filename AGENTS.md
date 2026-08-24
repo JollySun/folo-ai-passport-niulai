@@ -1,39 +1,35 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Structure
 
-This repository is an ESP-IDF BSP and hardware demonstration for the ESP32-C3-based FoloToy AI Passport.
+- `main/`: Niu Lai state model, LVGL UI, audio orchestration, fonts, and persistent voice storage.
+- `components/bsp/`: reusable display, button, audio, battery, and shared-I2C modules.
+- `components/bsp/include/bsp_pins.h`: single source of truth for pins and board constants.
+- `tests/`: host-side tests for hardware-independent module interfaces.
+- `scripts/`: stable test and packaging entry points used locally and in CI.
+- `docs/`: user, build, architecture, and hardware documentation.
 
-- `components/bsp/include/`: public BSP APIs and the hardware pin/configuration source of truth (`bsp_pins.h`).
-- `components/bsp/src/`: display, button, audio, battery, and shared-I2C implementations.
-- `main/`: the LVGL menu and independent `demo_*.c` hardware validation pages. New demos should implement the `enter`, `exit`, and `key` interface declared in `demo.h`.
-- `sdkconfig.defaults`: reproducible target, console, LVGL, and memory defaults.
-- `README.md`: wiring, known hardware traps, and the required on-device acceptance checklist.
+Keep application behavior in `main` and reusable board access in `components/bsp`. Do not add an interface or adapter unless behavior really varies across that seam.
 
-Keep reusable hardware logic in `components/bsp`; keep board demonstration and UI behavior in `main`.
+## Commands
 
-## Build, Test, and Development Commands
-
-Use ESP-IDF 5.5.x:
+Use ESP-IDF 5.5.3:
 
 ```bash
-get_idf553                    # Enter the repository's ESP-IDF 5.5.3 environment
-idf.py set-target esp32c3     # Configure a fresh checkout
-idf.py build                  # Compile firmware and validate dependencies
-idf.py flash monitor          # Flash the connected board and open logs
-idf.py fullclean              # Remove generated build state when configuration is stale
+scripts/test.sh
+idf.py build
+idf.py flash monitor
+scripts/package-firmware.sh build dist dev
 ```
 
-Host-side logic tests live in `tests/` and run in CI (`.github/workflows/build.yml`) on every push to `main` and on pull requests: `tests/test_niulai_regressions.sh` runs the source regression checks plus the audio and battery math tests, and the README documents the standalone `ui_pixel_math` host test. Treat a clean `idf.py build` and passing host tests as the minimum check, then run every applicable item in the README acceptance checklist on real hardware.
+Treat host tests and a clean build as the minimum automated checks. Display, buttons, audio, recording, battery, and timing conclusions require physical-device validation.
 
-## Coding Style & Naming Conventions
+## Code and tests
 
-Write C using four-space indentation and K&R-style braces, following nearby files. Use `snake_case` for functions and locals, `BSP_*` for public hardware constants, and `s_` for file-local state. Keep BSP APIs prefixed with `bsp_`; name demo entry points `demo_<feature>_<action>`. Prefer `static` for internal symbols. UI text stays English; explanatory comments may be Chinese. Preserve comments documenting hardware-specific register values and memory constraints.
+Use four-space C indentation, K&R braces, `snake_case`, `s_` for file-local state, and `bsp_` for BSP interfaces. Keep blocking work out of button callbacks and lock LVGL outside its task. Preserve comments that explain hardware register values, memory limits, and initialization order.
 
-## Testing Guidelines
+Test observable behavior through module interfaces. Do not replace behavioral tests with source-text matching. Do not edit `managed_components/`, generated fonts, or binary assets manually.
 
-Before submitting, build from the repository root and inspect warnings. On hardware, verify menu navigation and the affected Display, Button, Audio, or Battery page. For pin, display-rotation, codec-clock, ADC, or DMA changes, explicitly record the observed hardware result in the PR. Do not increase LVGL buffers or audio allocations without checking ESP32-C3 internal RAM usage; the board has no PSRAM.
+## Changes
 
-## Commit & Pull Request Guidelines
-
-History follows Conventional Commit-style subjects such as `feat(bsp): ...`, `feat(demo): ...`, `fix(bsp): ...`, and `docs: ...`. Keep commits focused by subsystem. Pull requests should explain the hardware/revision tested, summarize behavior changes, list build and on-device results, and include photos or screenshots for display changes. Link related issues and call out wiring, pin-map, or compatibility impacts.
+Preserve unrelated worktree changes. Commit messages use focused Conventional Commit subjects. Pull requests must record automated checks, applicable hardware results, and unverified items. New media requires a source and redistribution notice; the MIT license covers code, not third-party movie assets.
