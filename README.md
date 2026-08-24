@@ -49,7 +49,7 @@ The recording feature depends on the `recordings` partition. An app-only image c
 
 ## Build from source
 
-Requirements: FoloToy AI Passport, USB data cable, Git, and ESP-IDF 5.5.3.
+Requirements: FoloToy AI Passport, USB data cable, Git, Rustup, and ESP-IDF 5.5.3.
 
 ```bash
 git clone https://github.com/JollySun/folo-ai-passport-niulai.git
@@ -65,16 +65,22 @@ Detailed setup, packaging, and flashing commands are in [Building](docs/BUILDING
 ## Repository layout
 
 ```text
+crates/passport-core/  Shared no_std signal and battery calculations
+apps/niulai/core/      Niu Lai-specific no_std state model
+components/passport-rust/ Temporary C ABI for the Rust migration
 components/bsp/       Board drivers and hardware constants
-main/                 Application state, UI, audio, and recording storage
+main/                 UI, audio orchestration, and recording storage
 main/assets/niulai/   Firmware-ready RGB565 and PCM assets
 assets/niulai/        Human-viewable previews and provenance
-tests/                Hardware-independent C tests
+tests/                C ABI behavior tests for hardware-independent logic
 scripts/              Test and firmware-packaging entry points
 docs/                 User, build, architecture, and hardware documentation
 ```
 
-The application keeps hardware-independent state in `niulai_model`, persistent voice storage in `niulai_voice_store`, and board access behind the BSP interfaces. See [Architecture](docs/ARCHITECTURE.md) for the runtime and flash layout.
+The application keeps shared calculations in the `passport-core` Rust crate,
+Niu Lai state in `niulai-core`, persistent voice storage in
+`niulai_voice_store`, and board access behind the BSP interfaces. See
+[Architecture](docs/ARCHITECTURE.md) for the runtime and flash layout.
 
 ## Development
 

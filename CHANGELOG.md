@@ -4,6 +4,12 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Changed
+
+- Began the Rust migration with `no_std` crates for shared calculations and the
+  Niu Lai application model while retaining the proven ESP-IDF BSP, LVGL UI,
+  and audio stack.
+
 ## [0.0.2] - 2026-08-24
 
 ### Changed

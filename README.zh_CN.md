@@ -49,7 +49,7 @@
 
 ## 从源码构建
 
-需要 FoloToy AI Passport、USB 数据线、Git 和 ESP-IDF 5.5.3。
+需要 FoloToy AI Passport、USB 数据线、Git、Rustup 和 ESP-IDF 5.5.3。
 
 ```bash
 git clone https://github.com/JollySun/folo-ai-passport-niulai.git
@@ -65,16 +65,21 @@ idf.py flash monitor
 ## 项目结构
 
 ```text
+crates/passport-core/  可共用的 no_std 信号与电池计算
+apps/niulai/core/      牛来专用的 no_std 状态机
+components/passport-rust/ Rust 迁移期间使用的 C ABI
 components/bsp/       板级驱动和硬件常量
-main/                 应用状态、UI、音频和录音存储
+main/                 UI、音频编排和录音存储
 main/assets/niulai/   固件使用的 RGB565 与 PCM 素材
 assets/niulai/        可预览素材和来源记录
-tests/                不依赖硬件的 C 测试
+tests/                不依赖硬件的 C ABI 行为测试
 scripts/              测试与固件打包入口
 docs/                 使用、构建、架构和硬件文档
 ```
 
-纯状态机位于 `niulai_model`，持久录音位于 `niulai_voice_store`，硬件访问统一经过 BSP 接口。运行任务与 Flash 布局见[架构说明](docs/ARCHITECTURE.md)。
+共用计算逻辑位于 Rust `passport-core` crate，牛来状态位于
+`niulai-core`，持久录音位于 `niulai_voice_store`，硬件访问统一经过 BSP
+接口。运行任务与 Flash 布局见[架构说明](docs/ARCHITECTURE.md)。
 
 ## 开发
 

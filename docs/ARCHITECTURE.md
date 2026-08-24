@@ -7,7 +7,9 @@
 ```text
 app_main
   └─ niulai_app_start
-      ├─ niulai_model          纯状态与动作决策
+      ├─ niulai-core           Rust 牛来状态与动作决策
+      ├─ passport-core         Rust 共用 PCM 与电池计算
+      ├─ passport-rust         迁移期间供 C 调用的窄适配层
       ├─ niulai_voice_store    双 Bank 录音持久化
       └─ components/bsp        显示、按键、音频、电池、共享 I2C
 ```
@@ -16,12 +18,17 @@ app_main
 
 | 模块 | 接口 | 职责 |
 | --- | --- | --- |
-| `niulai_model` | `init`、`apply` | 页面、返回页、音量和输入到动作的映射；可在主机测试 |
+| `niulai-core` | `Model::apply` | 牛来页面、返回页、音量和输入到动作的映射；`no_std` 且可在主机测试 |
+| `passport-core` | Rust 纯函数 | 多工具可共用的 PCM 音量和电池估算；`no_std` 且可在主机测试 |
+| `passport-rust` | 现有 C 头文件 | 将临时 C ABI 转成 Rust core 类型；不包含业务逻辑或 ESP-IDF 调用 |
 | `niulai_app` | `niulai_app_start` | LVGL 页面、动画、任务、按键编排和故障降级 |
 | `niulai_voice_store` | `init/read/begin/append/finish/reset` | 录音流式写入、校验和双 Bank 原子切换 |
 | `components/bsp` | `bsp_*` 头文件 | 隐藏 GPIO、I2C、I2S、SPI、ADC 和器件初始化细节 |
 
 硬件常量只在 `components/bsp/include/bsp_pins.h` 定义。应用不得复制 GPIO、总线地址或屏幕参数。
+
+`passport-rust` 是渐进迁移适配层，不是新的业务接口。当前 C 调用者迁移到
+Rust 后应删除它；新的 Rust 代码直接依赖 `passport-core`，不得经过 C ABI。
 
 ## 运行任务
 
@@ -57,4 +64,7 @@ LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时
 
 ## 测试接口
 
-`scripts/test.sh` 只通过模块公开接口验证纯逻辑，不依赖内部静态状态。完整 ESP-IDF 构建验证驱动、分区、素材符号和依赖集成；显示、声音、ADC 和电池仍必须上板验收。
+`scripts/test.sh` 运行两个 Rust core 的测试，并让原有 C 行为测试链接
+`passport-rust` 静态库，从同一接口验证迁移前后的 ABI 行为。完整 ESP-IDF
+构建验证 Rust 交叉编译、驱动、分区、素材符号和依赖集成；显示、声音、ADC
+和电池仍必须上板验收。

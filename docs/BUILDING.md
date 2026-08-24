@@ -3,10 +3,16 @@
 ## 环境要求
 
 - ESP-IDF 5.5.3（CI 使用 `espressif/idf:v5.5.3`）
+- Rustup；仓库的 `rust-toolchain.toml` 会安装固定 nightly、`rust-src`、
+  `rustfmt` 和 `clippy`
 - Git、C 编译器和支持数据传输的 USB 线
 - ESP32-C3 FoloToy AI Passport，8 MB Flash
 
-按 [ESP-IDF 官方安装说明](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/get-started/index.html) 安装工具链。项目依赖版本记录在已提交的 `dependencies.lock` 中，不要编辑 `managed_components/`。
+按 [ESP-IDF 官方安装说明](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/get-started/index.html)
+安装 ESP-IDF，并按 [Rustup](https://rustup.rs/) 说明安装 Rustup。项目的
+Rust 版本和组件由 `rust-toolchain.toml` 固定，Cargo 依赖由 `Cargo.lock`
+固定；ESP-IDF 依赖记录在 `dependencies.lock` 中。不要编辑
+`managed_components/`。
 
 ## 首次构建
 
@@ -27,7 +33,9 @@ idf.py build
 scripts/test.sh
 ```
 
-该命令在临时目录编译并运行应用状态机、PCM 音量和电池电压换算测试，不需要 ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换编译器。
+该命令在临时目录运行 Rust 单元测试，再将原有 C 行为测试链接到 Rust
+静态库，验证应用状态机、PCM 音量、电池电压换算和迁移 ABI。它不需要
+ESP-IDF 或实体设备。可使用 `CC=clang scripts/test.sh` 切换 C 编译器。
 
 ## 烧录与日志
 
@@ -69,11 +77,11 @@ scripts/package-firmware.sh build dist dev
 esptool.py --chip esp32c3 write_flash 0x0 dist/folo-ai-passport-niulai-dev-full.bin
 ```
 
-`build/`、`dist/`、`managed_components/` 和 `sdkconfig` 都是本地生成内容，已由 Git 忽略。
+`build/`、`target/`、`dist/`、`managed_components/` 和 `sdkconfig` 都是本地生成内容，已由 Git 忽略。
 
 ## CI 与发布
 
-- `.github/workflows/ci.yml` 在拉取请求、`main` 推送和手动触发时执行主机测试、空白检查、完整固件构建和打包。
+- `.github/workflows/build.yml` 在拉取请求、`main` 推送和手动触发时执行主机测试、空白检查、完整固件构建和打包。
 - `.github/workflows/release.yml` 在推送 `v*` 标签时重复构建，并创建带校验和的 GitHub Release。
 - Actions 依赖由 Dependabot 每月检查。
 

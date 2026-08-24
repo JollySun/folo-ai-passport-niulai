@@ -1,0 +1,15 @@
+[package]
+name = "passport-rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["staticlib"]
+doctest = false
+test = false
+
+[dependencies]
+niulai-core = { path = "../../apps/niulai/core" }
+passport-core = { path = "../../crates/passport-core" }

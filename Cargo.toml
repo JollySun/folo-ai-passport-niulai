@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "apps/niulai/core",
+    "components/passport-rust",
+    "crates/passport-core",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"
+license = "MIT"
+
+[profile.dev]
+opt-level = "z"
+panic = "abort"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = "debuginfo"
