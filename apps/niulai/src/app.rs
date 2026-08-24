@@ -73,7 +73,6 @@ impl AppState {
         self.animation_active = true;
         self.animation_frame = false;
         self.animation_left_ms = duration_ms;
-        self.ui.set_animation_frame(self.model.page(), false);
     }
 }
 
