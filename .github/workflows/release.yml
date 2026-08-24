@@ -16,11 +16,11 @@ jobs:
       image: espressif/idf:v5.5.3
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Restore managed components
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: managed_components
           key: managed-components-idf-5.5.3-${{ hashFiles('dependencies.lock') }}
@@ -30,7 +30,7 @@ jobs:
           idf.py build
           scripts/package-firmware.sh build dist "$GITHUB_REF_NAME"
       - name: Upload release bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ github.ref_name }}
           path: dist/
@@ -46,7 +46,7 @@ jobs:
       contents: write
     steps:
       - name: Download release bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-${{ github.ref_name }}
           path: dist
