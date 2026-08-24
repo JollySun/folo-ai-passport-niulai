@@ -47,10 +47,16 @@ function(passport_add_rust_staticlib)
 
     add_prebuilt_library(${rust_prebuilt} "${rust_static_library}")
     add_dependencies(${rust_prebuilt} ${rust_project})
-    get_target_property(component_type ${COMPONENT_LIB} TYPE)
-    if(component_type STREQUAL "INTERFACE_LIBRARY")
-        target_link_libraries(${COMPONENT_LIB} INTERFACE ${rust_prebuilt})
-    else()
-        target_link_libraries(${COMPONENT_LIB} PRIVATE ${rust_prebuilt})
+
+    # Keep the Rust application behind the stable, app-neutral entry component.
+    # This places the Rust archive before the BSP archives in ESP-IDF's final
+    # link order, so symbols imported by Rust are resolved by the libraries that
+    # follow it. Linking it from the selected app component puts it too late and
+    # makes GNU ld miss those already-scanned static archives.
+    idf_component_get_property(rust_entry_component rust_app_entry COMPONENT_LIB)
+    if(NOT rust_entry_component OR NOT TARGET "${rust_entry_component}")
+        message(FATAL_ERROR
+            "rust_app_entry must be registered before adding a Rust application")
     endif()
+    target_link_libraries(${rust_entry_component} PRIVATE ${rust_prebuilt})
 endfunction()
