@@ -14,6 +14,9 @@ int main(void)
     niulai_scale_pcm16(output, source, 5, 100);
     for (int i = 0; i < 5; ++i) assert(output[i] == source[i]);
 
+    niulai_scale_pcm16(output, source, 5, 255);
+    for (int i = 0; i < 5; ++i) assert(output[i] == source[i]);
+
     niulai_scale_pcm16(output, source, 5, 50);
     assert(output[0] == -15000);
     assert(output[1] == -500);

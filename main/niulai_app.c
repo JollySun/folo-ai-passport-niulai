@@ -33,6 +33,17 @@
 #define MAMA_ANIMATION_MS 2550
 #define NIULAI_ANIMATION_MS 1350
 #define BATTERY_REFRESH_MS 1000
+#define UI_TRANSITION_MS 160
+#define VOLUME_TRACK_WIDTH 184
+
+#define UI_COLOR_BG 0x071A1E
+#define UI_COLOR_SURFACE 0x10292D
+#define UI_COLOR_SURFACE_ALT 0x18383A
+#define UI_COLOR_TEXT 0xF7F2E8
+#define UI_COLOR_MUTED 0xA7C2BE
+#define UI_COLOR_ACCENT 0xE7A35B
+#define UI_COLOR_EDGE 0x3C7772
+#define UI_COLOR_TRACK 0x294A4B
 
 static const char *TAG = "niulai";
 
@@ -95,6 +106,16 @@ static lv_obj_t *s_battery_body;
 static lv_obj_t *s_battery_fill;
 static lv_obj_t *s_battery_cap;
 static lv_obj_t *s_battery_value;
+static lv_obj_t *s_record_dot;
+static lv_obj_t *s_volume_label;
+static lv_obj_t *s_volume_value;
+static lv_obj_t *s_volume_track;
+static lv_obj_t *s_volume_fill;
+static lv_obj_t *s_volume_help;
+static lv_obj_t *s_settings_divider;
+static lv_obj_t *s_voice_label;
+static lv_obj_t *s_reset_panel;
+static lv_obj_t *s_reset_label;
 static QueueHandle_t s_audio_queue;
 static bool s_audio_ok;
 static bool s_battery_ok;
@@ -107,16 +128,59 @@ static bsp_btn_t s_record_button;
 static bool s_animation_active;
 static bool s_animation_frame;
 static uint32_t s_animation_left_ms;
+static uint32_t s_record_pulse_ms;
+static bool s_record_pulse_on;
+static bool s_rendered_page_valid;
+static niulai_page_t s_rendered_page;
 
-static lv_obj_t *make_centered_label(lv_obj_t *parent, const lv_font_t *font,
-                                     uint32_t color)
+static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font,
+                            uint32_t color)
 {
     lv_obj_t *label = lv_label_create(parent);
-    lv_obj_set_width(label, 224);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_font(label, font, 0);
     lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
     return label;
+}
+
+static void set_hidden(lv_obj_t *object, bool hidden)
+{
+    if (hidden) lv_obj_add_flag(object, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_remove_flag(object, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void set_label_layout(lv_obj_t *label, const lv_font_t *font,
+                             uint32_t color, int x, int y, int width,
+                             int height, lv_text_align_t align)
+{
+    lv_obj_set_pos(label, x, y);
+    lv_obj_set_size(label, width, height);
+    lv_obj_set_style_text_font(label, font, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
+    lv_obj_set_style_text_align(label, align, 0);
+    lv_obj_set_style_text_line_space(label, 3, 0);
+}
+
+static void style_surface(lv_obj_t *surface, uint32_t background,
+                          uint32_t border, lv_opa_t opacity, int radius,
+                          int border_width)
+{
+    lv_obj_set_style_bg_color(surface, lv_color_hex(background), 0);
+    lv_obj_set_style_bg_opa(surface, opacity, 0);
+    lv_obj_set_style_border_color(surface, lv_color_hex(border), 0);
+    lv_obj_set_style_border_width(surface, border_width, 0);
+    lv_obj_set_style_radius(surface, radius, 0);
+}
+
+static void set_settings_widgets_hidden(bool hidden)
+{
+    set_hidden(s_volume_label, hidden);
+    set_hidden(s_volume_value, hidden);
+    set_hidden(s_volume_track, hidden);
+    set_hidden(s_volume_help, hidden);
+    set_hidden(s_settings_divider, hidden);
+    set_hidden(s_voice_label, hidden);
+    set_hidden(s_reset_panel, hidden);
 }
 
 static const lv_image_dsc_t *animation_image(bool second_frame)
@@ -127,20 +191,10 @@ static const lv_image_dsc_t *animation_image(bool second_frame)
     return second_frame ? &MOTHER_2_IMAGE : &MOTHER_1_IMAGE;
 }
 
-static void set_label_font(lv_obj_t *label, const lv_font_t *font)
-{
-    lv_obj_set_style_text_font(label, font, 0);
-}
-
 static void set_battery_hidden(bool hidden)
 {
-    if (hidden) {
-        lv_obj_add_flag(s_battery_body, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(s_battery_cap, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_remove_flag(s_battery_body, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_remove_flag(s_battery_cap, LV_OBJ_FLAG_HIDDEN);
-    }
+    set_hidden(s_battery_body, hidden);
+    set_hidden(s_battery_cap, hidden);
 }
 
 static void update_battery_icon(void)
@@ -151,17 +205,16 @@ static void update_battery_icon(void)
     if (percent < 0) {
         lv_obj_set_width(s_battery_fill, 0);
         lv_label_set_text(s_battery_value, "");
-        lv_obj_set_style_border_color(s_battery_body, lv_color_hex(0x71C8C1), 0);
+        lv_obj_set_style_border_color(s_battery_body, lv_color_hex(UI_COLOR_EDGE), 0);
         lv_obj_set_style_bg_opa(s_battery_body, LV_OPA_60, 0);
         return;
     }
     if (percent > 100) percent = 100;
 
-    int fill_width = (percent * 30 + 99) / 100;
+    int fill_width = (percent * 34 + 99) / 100;
     lv_obj_set_width(s_battery_fill, fill_width);
-    lv_obj_set_style_bg_color(s_battery_fill,
-        lv_color_hex(percent <= 20 ? 0xFF9A64 : 0xFFD36B), 0);
-    lv_obj_set_style_border_color(s_battery_body, lv_color_hex(0x71C8C1), 0);
+    lv_obj_set_style_bg_color(s_battery_fill, lv_color_hex(UI_COLOR_ACCENT), 0);
+    lv_obj_set_style_border_color(s_battery_body, lv_color_hex(UI_COLOR_EDGE), 0);
     lv_obj_set_style_bg_opa(s_battery_body, LV_OPA_80, 0);
     lv_label_set_text_fmt(s_battery_value, "%d", percent);
 }
@@ -169,28 +222,29 @@ static void update_battery_icon(void)
 static void show_home(void)
 {
     s_animation_active = false;
-    lv_obj_remove_flag(s_image, LV_OBJ_FLAG_HIDDEN);
+    set_hidden(s_image, false);
+    set_hidden(s_record_dot, true);
+    set_settings_widgets_hidden(true);
     set_battery_hidden(false);
     lv_obj_set_pos(s_image, 0, 0);
     lv_image_set_src(s_image, &HOME_IMAGE);
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(0xF2F0E8), 0);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(UI_COLOR_BG), 0);
 
-    lv_obj_set_pos(s_panel, 5, 205);
-    lv_obj_set_size(s_panel, 230, 110);
-    lv_obj_set_style_bg_color(s_panel, lv_color_hex(0x071A1E), 0);
-    lv_obj_set_style_bg_opa(s_panel, LV_OPA_80, 0);
-    lv_obj_set_style_border_color(s_panel, lv_color_hex(0x71C8C1), 0);
+    lv_obj_set_pos(s_panel, 8, 188);
+    lv_obj_set_size(s_panel, 224, 124);
+    style_surface(s_panel, UI_COLOR_SURFACE, UI_COLOR_EDGE, LV_OPA_90, 16, 1);
 
-    set_label_font(s_title, &niulai_font_20);
-    set_label_font(s_phrase, &niulai_font_14);
-    set_label_font(s_hint, &lv_font_montserrat_14);
+    set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
+                     20, 197, 200, 28, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_phrase, &niulai_font_16, UI_COLOR_TEXT,
+                     20, 229, 200, 23, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
+                     20, 260, 200, 42, LV_TEXT_ALIGN_LEFT);
     lv_label_set_text(s_title, "牛来");
-    lv_obj_set_pos(s_title, 8, 211);
-    lv_label_set_text(s_phrase, s_audio_ok ? "UP: 妈妈~~\nDOWN: 牛来!!"
-                                              : "UP / DOWN: ANIMATION\nAUDIO UNAVAILABLE");
-    lv_obj_set_pos(s_phrase, 8, 238);
-    lv_label_set_text(s_hint, "HOLD UP / DOWN: RECORD\nOK: SETTINGS");
-    lv_obj_set_pos(s_hint, 8, 278);
+    lv_label_set_text(s_phrase, "上键  牛来   ·   下键  妈妈");
+    lv_label_set_text(s_hint, s_audio_ok
+        ? "长按对应按键可录音\n确认键进入设置"
+        : "声音暂不可用\n确认键进入设置");
     update_battery_icon();
 }
 
@@ -199,87 +253,118 @@ static void show_active_page(void)
     bool calf = s_model.page == NIULAI_PAGE_CALF;
     bool record_page = (calf && s_record_slot == NIULAI_VOICE_CALF) ||
                        (!calf && s_record_slot == NIULAI_VOICE_MOTHER);
-    lv_obj_remove_flag(s_image, LV_OBJ_FLAG_HIDDEN);
+    set_hidden(s_image, false);
+    set_settings_widgets_hidden(true);
     set_battery_hidden(true);
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x0A171A), 0);
-    lv_obj_set_pos(s_image, 0, 48);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(UI_COLOR_BG), 0);
+    lv_obj_set_pos(s_image, 0, 42);
     lv_image_set_src(s_image, animation_image(false));
 
-    lv_obj_set_pos(s_panel, 5, 225);
-    lv_obj_set_size(s_panel, 230, 90);
-    lv_obj_set_style_bg_color(s_panel, lv_color_hex(0x112A2E), 0);
-    lv_obj_set_style_bg_opa(s_panel, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_panel, lv_color_hex(calf ? 0xFF9A64 : 0xFFD36B), 0);
+    lv_obj_set_pos(s_panel, 8, 224);
+    lv_obj_set_size(s_panel, 224, 88);
+    style_surface(s_panel, UI_COLOR_SURFACE, UI_COLOR_ACCENT,
+                  LV_OPA_COVER, 16, 1);
 
-    set_label_font(s_title, &niulai_font_20);
-    set_label_font(s_phrase, &niulai_font_20);
-    set_label_font(s_hint, &lv_font_montserrat_10);
+    set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
+                     16, 10, 208, 28, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_phrase, &niulai_font_22, UI_COLOR_TEXT,
+                     20, 241, 200, 32, LV_TEXT_ALIGN_CENTER);
+    set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
+                     20, 286, 200, 18, LV_TEXT_ALIGN_CENTER);
     lv_label_set_text(s_title, calf ? "牛来" : "妈妈");
-    lv_obj_set_pos(s_title, 8, 14);
     if (record_page && s_record_state == RECORD_STATE_PREPARING) {
-        lv_label_set_text(s_phrase, "PREPARING...");
+        lv_label_set_text(s_phrase, "准备录音");
     } else if (record_page && s_record_state == RECORD_STATE_ACTIVE) {
-        lv_label_set_text(s_phrase, "RECORDING...");
+        lv_label_set_text(s_phrase, "正在录音");
     } else if (record_page && s_record_state == RECORD_STATE_SAVING) {
-        lv_label_set_text(s_phrase, "SAVING...");
+        lv_label_set_text(s_phrase, "正在保存");
     } else if (record_page && s_record_state == RECORD_STATE_SAVED) {
-        lv_label_set_text(s_phrase, "VOICE SAVED");
+        lv_label_set_text(s_phrase, "录音已保存");
     } else if (record_page && s_record_state == RECORD_STATE_FAILED) {
-        lv_label_set_text(s_phrase, "RECORD FAILED");
+        lv_label_set_text(s_phrase, "录音失败");
     } else {
-        lv_label_set_text(s_phrase, calf ? "妈妈~~" : "牛来!!");
+        lv_label_set_text(s_phrase, calf ? "妈妈～～" : "牛来！");
     }
-    lv_obj_align_to(s_phrase, s_panel, LV_ALIGN_CENTER, 0, -2);
     lv_label_set_text(s_hint,
         record_page && (s_record_state == RECORD_STATE_PREPARING ||
                         s_record_state == RECORD_STATE_ACTIVE)
-            ? "RELEASE TO SAVE" : "HOLD OK: HOME");
-    lv_obj_align_to(s_hint, s_panel, LV_ALIGN_BOTTOM_MID, 0, -4);
+            ? "松开按键保存" : "长按确认键返回首页");
+
+    bool recording = record_page &&
+                     (s_record_state == RECORD_STATE_PREPARING ||
+                      s_record_state == RECORD_STATE_ACTIVE ||
+                      s_record_state == RECORD_STATE_SAVING);
+    set_hidden(s_record_dot, !recording);
+    if (recording) {
+        lv_obj_set_style_bg_opa(s_record_dot, LV_OPA_COVER, 0);
+        s_record_pulse_ms = 0;
+        s_record_pulse_on = true;
+    }
 }
 
 static void show_settings(void)
 {
     s_animation_active = false;
-    lv_obj_add_flag(s_image, LV_OBJ_FLAG_HIDDEN);
+    set_hidden(s_image, true);
+    set_hidden(s_record_dot, true);
+    set_settings_widgets_hidden(false);
     set_battery_hidden(true);
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x071A1E), 0);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(UI_COLOR_BG), 0);
 
-    lv_obj_set_pos(s_panel, 15, 66);
-    lv_obj_set_size(s_panel, 210, 188);
-    lv_obj_set_style_bg_color(s_panel, lv_color_hex(0x112A2E), 0);
-    lv_obj_set_style_bg_opa(s_panel, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_panel, lv_color_hex(0x71C8C1), 0);
+    lv_obj_set_pos(s_panel, 12, 50);
+    lv_obj_set_size(s_panel, 216, 246);
+    style_surface(s_panel, UI_COLOR_SURFACE, UI_COLOR_EDGE,
+                  LV_OPA_COVER, 18, 1);
 
-    set_label_font(s_title, &lv_font_montserrat_20);
-    set_label_font(s_phrase, &lv_font_montserrat_20);
-    set_label_font(s_hint, &lv_font_montserrat_14);
-    lv_label_set_text(s_title, "SETTINGS");
-    lv_obj_set_pos(s_title, 8, 82);
+    set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
+                     18, 14, 204, 30, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_phrase, &niulai_font_16, UI_COLOR_TEXT,
+                     28, 176, 184, 24, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
+                     28, 270, 184, 18, LV_TEXT_ALIGN_CENTER);
+    lv_label_set_text(s_title, "设置");
+
+    lv_label_set_text(s_volume_label, "音量");
+    lv_label_set_text_fmt(s_volume_value, "%d%%", s_model.volume);
+    int target_width = (s_model.volume * VOLUME_TRACK_WIDTH + 99) / 100;
+    lv_obj_set_width(s_volume_fill, target_width);
+    lv_label_set_text(s_volume_help, "上键增加  ·  下键减少");
+    lv_label_set_text(s_voice_label, "自定义声音");
+
     int custom_count = (niulai_voice_store_has(NIULAI_VOICE_CALF) ? 1 : 0) +
                        (niulai_voice_store_has(NIULAI_VOICE_MOTHER) ? 1 : 0);
     if (s_record_state == RECORD_STATE_PREPARING) {
-        lv_label_set_text_fmt(s_phrase, "VOLUME %d%%\nRESETTING...", s_model.volume);
+        lv_label_set_text(s_phrase, "正在恢复");
     } else if (s_record_state == RECORD_STATE_FAILED) {
-        lv_label_set_text_fmt(s_phrase, "VOLUME %d%%\nRESET FAILED", s_model.volume);
+        lv_label_set_text(s_phrase, "恢复失败");
     } else if (!niulai_voice_store_available()) {
-        lv_label_set_text_fmt(s_phrase, "VOLUME %d%%\nVOICE STORE: N/A", s_model.volume);
+        lv_label_set_text(s_phrase, "录音存储不可用");
     } else if (s_record_state == RECORD_STATE_RESET_DONE) {
-        lv_label_set_text_fmt(s_phrase, "VOLUME %d%%\nVOICES: DEFAULT", s_model.volume);
+        lv_label_set_text(s_phrase, "已恢复默认声音");
+    } else if (custom_count > 0) {
+        lv_label_set_text_fmt(s_phrase, "已保存 %d 个", custom_count);
     } else {
-        lv_label_set_text_fmt(s_phrase, "VOLUME %d%%\nCUSTOM VOICES: %d", s_model.volume,
-                              custom_count);
+        lv_label_set_text(s_phrase, "使用默认声音");
     }
-    lv_obj_set_pos(s_phrase, 8, 128);
-    lv_label_set_text(s_hint,
-        "UP / DOWN: VOLUME\nDOUBLE OK: RESET VOICES\nOK: BACK");
-    lv_obj_set_pos(s_hint, 8, 194);
+    lv_label_set_text(s_reset_label, "双击确认键恢复默认声音");
+    lv_label_set_text(s_hint, "确认键返回");
 }
 
 static void show_current_page(void)
 {
+    bool page_changed = !s_rendered_page_valid || s_rendered_page != s_model.page;
     if (s_model.page == NIULAI_PAGE_HOME) show_home();
     else if (s_model.page == NIULAI_PAGE_SETTINGS) show_settings();
     else show_active_page();
+
+    if (page_changed) {
+        lv_obj_fade_in(s_panel, UI_TRANSITION_MS, 0);
+        if (s_model.page != NIULAI_PAGE_SETTINGS) {
+            lv_obj_fade_in(s_image, UI_TRANSITION_MS, 0);
+        }
+        s_rendered_page = s_model.page;
+        s_rendered_page_valid = true;
+    }
 }
 
 static void start_animation(uint32_t duration_ms)
@@ -293,7 +378,20 @@ static void start_animation(uint32_t duration_ms)
 static void animation_tick(lv_timer_t *timer)
 {
     (void)timer;
-    if (!s_animation_active || s_model.page == NIULAI_PAGE_HOME) return;
+    if (s_record_state == RECORD_STATE_ACTIVE &&
+        (s_model.page == NIULAI_PAGE_CALF ||
+         s_model.page == NIULAI_PAGE_MOTHER)) {
+        s_record_pulse_ms += ANIMATION_PERIOD_MS;
+        if (s_record_pulse_ms >= 480) {
+            s_record_pulse_ms = 0;
+            s_record_pulse_on = !s_record_pulse_on;
+            lv_obj_set_style_bg_opa(s_record_dot,
+                s_record_pulse_on ? LV_OPA_COVER : LV_OPA_30, 0);
+        }
+    }
+
+    if (!s_animation_active || s_model.page == NIULAI_PAGE_HOME ||
+        s_model.page == NIULAI_PAGE_SETTINGS) return;
 
     s_animation_frame = !s_animation_frame;
     lv_image_set_src(s_image, animation_image(s_animation_frame));
@@ -540,60 +638,127 @@ static void build_ui(void)
     lv_obj_remove_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(s_screen, 0, 0);
     lv_obj_set_style_pad_all(s_screen, 0, 0);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(UI_COLOR_BG), 0);
 
     s_image = lv_image_create(s_screen);
     s_panel = lv_obj_create(s_screen);
     lv_obj_remove_flag(s_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_radius(s_panel, 7, 0);
-    lv_obj_set_style_border_width(s_panel, 2, 0);
     lv_obj_set_style_pad_all(s_panel, 0, 0);
+    lv_obj_set_style_shadow_color(s_panel, lv_color_hex(UI_COLOR_BG), 0);
+    lv_obj_set_style_shadow_opa(s_panel, LV_OPA_40, 0);
+    lv_obj_set_style_shadow_width(s_panel, 10, 0);
+    lv_obj_set_style_shadow_offset_y(s_panel, 3, 0);
 
-    s_title = make_centered_label(s_screen, &lv_font_montserrat_20, 0xFFFFFF);
-    s_phrase = make_centered_label(s_screen, &lv_font_montserrat_14, 0xFFFFFF);
-    s_hint = make_centered_label(s_screen, &lv_font_montserrat_14, 0xB8D8D8);
+    s_title = make_label(s_screen, &niulai_font_22, UI_COLOR_TEXT);
+    s_phrase = make_label(s_screen, &niulai_font_16, UI_COLOR_TEXT);
+    s_hint = make_label(s_screen, &niulai_font_12, UI_COLOR_MUTED);
 
-    // iOS-style status battery: percentage sits inside the rounded battery
-    // body, with a fill level and a separate terminal instead of "BAT x%".
+    // 紧凑的电池图标:数字置于圆角电池内部,不显示额外文字前缀。
     s_battery_body = lv_obj_create(s_screen);
-    lv_obj_set_pos(s_battery_body, 8, 8);
-    lv_obj_set_size(s_battery_body, 36, 16);
+    lv_obj_set_pos(s_battery_body, 10, 10);
+    lv_obj_set_size(s_battery_body, 40, 18);
     lv_obj_remove_flag(s_battery_body, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(s_battery_body, 0, 0);
-    lv_obj_set_style_radius(s_battery_body, 5, 0);
-    lv_obj_set_style_border_width(s_battery_body, 2, 0);
-    lv_obj_set_style_border_color(s_battery_body, lv_color_hex(0x71C8C1), 0);
-    lv_obj_set_style_bg_color(s_battery_body, lv_color_hex(0x071A1E), 0);
+    lv_obj_set_style_radius(s_battery_body, 6, 0);
+    lv_obj_set_style_border_width(s_battery_body, 1, 0);
+    lv_obj_set_style_border_color(s_battery_body, lv_color_hex(UI_COLOR_EDGE), 0);
+    lv_obj_set_style_bg_color(s_battery_body, lv_color_hex(UI_COLOR_BG), 0);
     lv_obj_set_style_bg_opa(s_battery_body, LV_OPA_80, 0);
 
     s_battery_fill = lv_obj_create(s_battery_body);
-    lv_obj_set_pos(s_battery_fill, 1, 1);
-    lv_obj_set_size(s_battery_fill, 0, 10);
+    lv_obj_set_pos(s_battery_fill, 2, 2);
+    lv_obj_set_size(s_battery_fill, 0, 12);
     lv_obj_remove_flag(s_battery_fill, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(s_battery_fill, 0, 0);
     lv_obj_set_style_border_width(s_battery_fill, 0, 0);
-    lv_obj_set_style_radius(s_battery_fill, 3, 0);
+    lv_obj_set_style_radius(s_battery_fill, 4, 0);
+    lv_obj_set_style_bg_color(s_battery_fill, lv_color_hex(UI_COLOR_ACCENT), 0);
     lv_obj_set_style_bg_opa(s_battery_fill, LV_OPA_COVER, 0);
 
     s_battery_value = lv_label_create(s_battery_body);
-    lv_obj_set_width(s_battery_value, 32);
+    lv_obj_set_width(s_battery_value, 38);
     lv_obj_set_style_text_align(s_battery_value, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(s_battery_value, &lv_font_montserrat_10, 0);
-    lv_obj_set_style_text_color(s_battery_value, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_color(s_battery_value, lv_color_hex(0x071A1E), 0);
-    lv_obj_set_style_bg_opa(s_battery_value, LV_OPA_60, 0);
-    lv_obj_set_style_radius(s_battery_value, 2, 0);
+    lv_obj_set_style_text_font(s_battery_value, &niulai_font_12, 0);
+    lv_obj_set_style_text_color(s_battery_value, lv_color_hex(UI_COLOR_TEXT), 0);
+    lv_obj_set_style_bg_opa(s_battery_value, LV_OPA_TRANSP, 0);
     lv_obj_center(s_battery_value);
 
     s_battery_cap = lv_obj_create(s_screen);
-    lv_obj_set_pos(s_battery_cap, 45, 13);
-    lv_obj_set_size(s_battery_cap, 3, 6);
+    lv_obj_set_pos(s_battery_cap, 51, 15);
+    lv_obj_set_size(s_battery_cap, 3, 8);
     lv_obj_set_style_pad_all(s_battery_cap, 0, 0);
     lv_obj_set_style_border_width(s_battery_cap, 0, 0);
     lv_obj_set_style_radius(s_battery_cap, 2, 0);
-    lv_obj_set_style_bg_color(s_battery_cap, lv_color_hex(0x71C8C1), 0);
+    lv_obj_set_style_bg_color(s_battery_cap, lv_color_hex(UI_COLOR_EDGE), 0);
     lv_obj_set_style_bg_opa(s_battery_cap, LV_OPA_COVER, 0);
 
-    show_home();
+    s_record_dot = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_record_dot, 214, 18);
+    lv_obj_set_size(s_record_dot, 8, 8);
+    lv_obj_remove_flag(s_record_dot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_record_dot, 0, 0);
+    lv_obj_set_style_border_width(s_record_dot, 0, 0);
+    lv_obj_set_style_radius(s_record_dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(s_record_dot, lv_color_hex(UI_COLOR_ACCENT), 0);
+    lv_obj_set_style_bg_opa(s_record_dot, LV_OPA_COVER, 0);
+
+    s_volume_label = make_label(s_screen, &niulai_font_16, UI_COLOR_TEXT);
+    set_label_layout(s_volume_label, &niulai_font_16, UI_COLOR_TEXT,
+                     28, 66, 100, 24, LV_TEXT_ALIGN_LEFT);
+    s_volume_value = make_label(s_screen, &niulai_font_22, UI_COLOR_ACCENT);
+    set_label_layout(s_volume_value, &niulai_font_22, UI_COLOR_ACCENT,
+                     156, 61, 56, 30, LV_TEXT_ALIGN_RIGHT);
+
+    s_volume_track = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_volume_track, 28, 99);
+    lv_obj_set_size(s_volume_track, VOLUME_TRACK_WIDTH, 10);
+    lv_obj_remove_flag(s_volume_track, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_volume_track, 0, 0);
+    lv_obj_set_style_border_width(s_volume_track, 0, 0);
+    lv_obj_set_style_radius(s_volume_track, 5, 0);
+    lv_obj_set_style_bg_color(s_volume_track, lv_color_hex(UI_COLOR_TRACK), 0);
+    lv_obj_set_style_bg_opa(s_volume_track, LV_OPA_COVER, 0);
+
+    s_volume_fill = lv_obj_create(s_volume_track);
+    lv_obj_set_pos(s_volume_fill, 0, 0);
+    lv_obj_set_size(s_volume_fill, 0, 10);
+    lv_obj_remove_flag(s_volume_fill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_volume_fill, 0, 0);
+    lv_obj_set_style_border_width(s_volume_fill, 0, 0);
+    lv_obj_set_style_radius(s_volume_fill, 5, 0);
+    lv_obj_set_style_bg_color(s_volume_fill, lv_color_hex(UI_COLOR_ACCENT), 0);
+    lv_obj_set_style_bg_opa(s_volume_fill, LV_OPA_COVER, 0);
+
+    s_volume_help = make_label(s_screen, &niulai_font_12, UI_COLOR_MUTED);
+    set_label_layout(s_volume_help, &niulai_font_12, UI_COLOR_MUTED,
+                     28, 116, 184, 18, LV_TEXT_ALIGN_LEFT);
+
+    s_settings_divider = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_settings_divider, 28, 141);
+    lv_obj_set_size(s_settings_divider, 184, 1);
+    lv_obj_set_style_pad_all(s_settings_divider, 0, 0);
+    lv_obj_set_style_border_width(s_settings_divider, 0, 0);
+    lv_obj_set_style_bg_color(s_settings_divider, lv_color_hex(UI_COLOR_EDGE), 0);
+    lv_obj_set_style_bg_opa(s_settings_divider, LV_OPA_40, 0);
+
+    s_voice_label = make_label(s_screen, &niulai_font_12, UI_COLOR_MUTED);
+    set_label_layout(s_voice_label, &niulai_font_12, UI_COLOR_MUTED,
+                     28, 153, 184, 18, LV_TEXT_ALIGN_LEFT);
+
+    s_reset_panel = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_reset_panel, 24, 212);
+    lv_obj_set_size(s_reset_panel, 192, 42);
+    lv_obj_remove_flag(s_reset_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_reset_panel, 0, 0);
+    style_surface(s_reset_panel, UI_COLOR_SURFACE_ALT, UI_COLOR_ACCENT,
+                  LV_OPA_COVER, 11, 1);
+    s_reset_label = make_label(s_reset_panel, &niulai_font_12, UI_COLOR_TEXT);
+    lv_obj_set_size(s_reset_label, 176, 18);
+    lv_obj_set_style_text_align(s_reset_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(s_reset_label);
+
+    s_rendered_page_valid = false;
+    show_current_page();
     lv_timer_create(animation_tick, ANIMATION_PERIOD_MS, NULL);
     lv_screen_load(s_screen);
 }

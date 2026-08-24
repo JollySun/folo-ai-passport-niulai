@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: espressif/idf:v5.5.3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Restore managed components
+        uses: actions/cache@v6
+        with:
+          path: managed_components
+          key: managed-components-idf-5.5.3-${{ hashFiles('dependencies.lock') }}
+      - name: Build and package
+        run: |
+          . "$IDF_PATH/export.sh" >/dev/null
+          idf.py build
+          scripts/package-firmware.sh build dist "$GITHUB_REF_NAME"
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ github.ref_name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download release bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: release-${{ github.ref_name }}
+          path: dist
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

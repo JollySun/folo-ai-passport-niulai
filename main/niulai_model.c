@@ -31,7 +31,7 @@ niulai_action_t niulai_model_apply(niulai_model_t *model, niulai_input_t input)
     if (model->page == NIULAI_PAGE_SETTINGS) {
         if (input == NIULAI_INPUT_UP_CLICK && model->volume < 100) {
             unsigned int next = model->volume + NIULAI_VOLUME_STEP;
-            model->volume = next > 100 ? 100 : (unsigned char)next;
+            model->volume = next > 100 ? 100 : (uint8_t)next;
             return NIULAI_ACTION_VOLUME_CHANGED;
         }
         if (input == NIULAI_INPUT_DOWN_CLICK && model->volume > 0) {

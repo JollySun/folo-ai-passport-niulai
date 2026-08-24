@@ -58,6 +58,7 @@ static bool header_valid(const voice_header_t *header)
 
 esp_err_t niulai_voice_store_init(void)
 {
+    niulai_voice_store_cancel();
     s_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
                                             VOICE_PARTITION_SUBTYPE,
                                             "recordings");
@@ -193,14 +194,10 @@ esp_err_t niulai_voice_store_reset(void)
 {
     if (!s_partition) return ESP_ERR_INVALID_STATE;
     niulai_voice_store_cancel();
-    for (int i = 0; i < NIULAI_VOICE_COUNT; ++i) {
-        for (int bank = 0; bank < VOICE_BANK_COUNT; ++bank) {
-            esp_err_t error = esp_partition_erase_range(
-                s_partition, bank_offset((niulai_voice_slot_t)i, bank),
-                s_partition->erase_size);
-            if (error != ESP_OK) return error;
-        }
-    }
+    esp_err_t error = esp_partition_erase_range(s_partition, 0,
+                                                 s_partition->size);
+    if (error != ESP_OK) return error;
+
     memset(s_headers, 0, sizeof(s_headers));
     for (int i = 0; i < NIULAI_VOICE_COUNT; ++i) s_active_bank[i] = -1;
     ESP_LOGI(TAG, "custom voices reset to defaults");

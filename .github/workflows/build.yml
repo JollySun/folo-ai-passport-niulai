@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,60 +14,53 @@ permissions:
 
 jobs:
   host-tests:
-    name: Host logic tests
+    name: Host tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - name: Run host-side logic tests
-        run: |
-          set -e
-          sh tests/test_niulai_regressions.sh
-          cc -std=c11 -Wall -Wextra -Werror -Imain \
-            tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-            -o /tmp/test_ui_pixel_math && /tmp/test_ui_pixel_math
-          cc -std=c11 -Wall -Wextra -Werror -Imain \
-            tests/test_niulai_model.c main/niulai_model.c \
-            -o /tmp/test_niulai_model && /tmp/test_niulai_model
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Run host tests
+        run: scripts/test.sh
+      - name: Check whitespace
+        run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD
 
-  firmware-build:
-    name: ESP-IDF firmware build (esp32c3)
+  firmware:
+    name: ESP-IDF 5.5.3 / ESP32-C3
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     container:
       image: espressif/idf:v5.5.3
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+      - name: Restore managed components
+        uses: actions/cache@v6
+        with:
+          path: managed_components
+          key: managed-components-idf-5.5.3-${{ hashFiles('dependencies.lock') }}
       - name: Build firmware
         run: |
-          . $IDF_PATH/export.sh > /dev/null
-          idf.py set-target esp32c3
+          . "$IDF_PATH/export.sh" >/dev/null
           idf.py build
-      - name: Prepare release binaries
-        id: prepare
+      - name: Package firmware
+        id: package
+        shell: bash
         run: |
-          # Container job workspace is owned by the runner user; git inside
-          # the espressif/idf container (running as root) needs this exception.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          . $IDF_PATH/export.sh > /dev/null
-          VER="$(git describe --tags --always 2>/dev/null || git rev-parse --short HEAD)"
-          # ESP-IDF does not emit merged.bin by default; merge from flash_args.
-          # flash_args uses --flash_size detect (header rewrite at flash time),
-          # which merge_bin rejects; pin the product's 8 MB size instead.
-          # Paths inside flash_args are relative to build/, so run from there.
-          sed -i 's/--flash_size detect/--flash_size 8MB/' build/flash_args
-          (cd build && esptool.py --chip esp32c3 merge_bin @flash_args -o merged.bin)
-          echo "ver=${VER}" >> "$GITHUB_OUTPUT"
-          mkdir -p release
-          cp build/merged.bin "release/folo-ai-passport-niulai-${VER}-full.bin"
-          # App image name derives from project() in CMakeLists.txt.
-          cp build/FoloToy-AI-Passport.bin "release/folo-ai-passport-niulai-${VER}-app.bin"
-          cp build/bootloader/bootloader.bin "release/folo-ai-passport-niulai-${VER}-bootloader.bin"
-          cp build/partition_table/partition-table.bin "release/folo-ai-passport-niulai-${VER}-partition-table.bin"
-          echo "Firmware version: ${VER}"
-      - name: Upload firmware artifacts
-        uses: actions/upload-artifact@v4
+          . "$IDF_PATH/export.sh" >/dev/null
+          version="$(git describe --tags --always --dirty)"
+          scripts/package-firmware.sh build dist "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Upload firmware
+        uses: actions/upload-artifact@v7
         with:
-          name: firmware-folo-ai-passport-niulai-${{ steps.prepare.outputs.ver }}
-          path: release/
+          name: firmware-${{ steps.package.outputs.version }}
+          path: dist/
           if-no-files-found: error
+          retention-days: 14

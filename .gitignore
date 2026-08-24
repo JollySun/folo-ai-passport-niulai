@@ -2,8 +2,10 @@ build/
 sdkconfig
 sdkconfig.old
 managed_components/
-dependencies.lock
 .vscode/
 .DS_Store
 *.log
 releases/
+dist/
+*.o
+*.out
