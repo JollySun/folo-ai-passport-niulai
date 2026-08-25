@@ -1,16 +1,20 @@
-# 使用说明
+# 牛来使用说明
 
 ## 安装前
 
 本固件只面向 ESP32-C3 FoloToy AI Passport。首次安装必须使用发布包中的 `*-full.bin`，因为自定义录音依赖专用 `recordings` 分区。已经烧录过相同分区表的设备可以只更新 `*-app.bin`。
 
+从仓库的 [GitHub Releases](https://github.com/JollySun/folo-ai-passport-niulai/releases)
+选择标签为 `niulai/v<version>` 的发布，并使用包内 `SHA256SUMS` 校验镜像。其他
+应用的发布包不能替代牛来固件。
+
 安装前请注意：
 
 - 自定义录音最多两份，每份最长 10 秒，16 kHz、16 bit、单声道。
 - 重置声音会删除两份自定义录音，无法撤销。
-- 代码许可证不代表拥有电影素材的再分发权；公开分发前阅读[素材说明](../apps/niulai/assets/SOURCES.md)。
+- 代码许可证不代表拥有电影素材的再分发权；公开分发前阅读[素材说明](../assets/SOURCES.md)。
 
-烧录命令见[构建说明](BUILDING.md)，也可以使用 FoloToy 的 [Web Flasher](https://ai-passport.folotoy.cn/tools/web-flasher) 选择下载的固件文件。
+烧录命令见[构建说明](../../../docs/development/building.md)，也可以使用 FoloToy 的 [Web Flasher](https://ai-passport.folotoy.cn/tools/web-flasher) 选择下载的固件文件。
 
 ## 页面与按键
 

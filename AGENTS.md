@@ -14,7 +14,7 @@
 - `cmake/`: shared Rust static-library build and link integration.
 - `tests/`: host-side tests for hardware-independent module interfaces.
 - `scripts/`: stable test and packaging entry points used locally and in CI.
-- `docs/`: user, build, architecture, and hardware documentation.
+- `docs/`: cross-application architecture, development, hardware, and operations documentation.
 
 Keep all tool-specific behavior, entry points, adapters, tests, and resources
 under its `apps/<app>/` directory. Keep reusable pure logic in
@@ -23,6 +23,9 @@ and app-neutral C mechanisms in `components/bsp_*`. Every application exports
 `passport_app_main`; do not add application names, registries, or switches to shared
 code. The root CMake project only selects an application and must not contain tool behavior.
 Do not add an interface or adapter unless behavior really varies across that seam.
+Keep application documentation and release history under `apps/<app>/`; keep
+crate and C module documentation beside the owning shared module. The root
+README and `docs/` should link to canonical content instead of duplicating it.
 
 ## Commands
 
@@ -54,4 +57,4 @@ Test observable behavior through module interfaces. Do not replace behavioral te
 
 ## Changes
 
-Preserve unrelated worktree changes. Commit messages use focused Conventional Commit subjects. Pull requests must record automated checks, applicable hardware results, and unverified items. New media requires a source and redistribution notice; the MIT license covers code, not third-party movie assets.
+Preserve unrelated worktree changes. Commit messages use focused Conventional Commit subjects. Pull requests must record automated checks, applicable hardware results, and unverified items. Application release notes belong in `apps/<app>/CHANGELOG.md`; root `CHANGELOG.md` covers shared changes. New media requires a source and redistribution notice; the MIT license covers code, not third-party movie assets.

@@ -1,4 +1,4 @@
-# 构建说明
+# 构建、烧录与发布
 
 ## 环境要求
 
@@ -58,7 +58,7 @@ apps/<app>/test.sh
 静默排除在 CI firmware matrix 之外。
 
 新增工具无需修改根 workspace、CMake、CI matrix 或发布 workflow。完整模板见
-[新增应用指南](ADDING_APPS.md)。
+[新增应用指南](adding-apps.md)。
 
 ## 烧录与日志
 
@@ -119,7 +119,8 @@ python -m esptool --chip esp32c3 write-flash 0x0 dist/niulai/folo-ai-passport-ni
 - `.github/workflows/release.yml` 在推送 `<app>/v*` 标签时只构建对应应用，并创建带校验和的独立 GitHub Release。
 - Actions 依赖由 Dependabot 每月检查。
 
-创建发布前先更新 `CHANGELOG.md`，确认工作区干净并完成实机验收，然后推送带注释标签：
+创建发布前先更新 `apps/<app>/CHANGELOG.md`，确认工作区干净并完成实机验收，
+然后推送带注释标签。根 `CHANGELOG.md` 只记录 workspace 和公共模块变化：
 
 ```bash
 git tag -a niulai/v1.0.0 -m "niulai v1.0.0"
@@ -130,7 +131,10 @@ git push origin niulai/v1.0.0
 
 ## 实机验收
 
-自动构建不能替代硬件验证。至少检查：稳定启动、显示方向和颜色、三键短按/长按/双击、两段默认声音、音量 0/50/100%、两路录音和重启后持久化、电量降级，以及恢复默认声音。
+自动构建不能替代硬件验证。所有应用至少检查稳定启动、声明的输入输出、软依赖
+降级和长时间运行；具体功能清单由应用 README 维护。例如牛来的动画、按键、
+音频、录音和持久化项目见[牛来应用说明](../../apps/niulai/README.md)。板级修改
+还必须覆盖[硬件文档](../architecture/hardware.md)中的对应验收项。
 
-涉及 UI、callback、task、mutex 或 FFI 的修改还必须按[贡献指南](../CONTRIBUTING.md#local-verification)
+涉及 UI、callback、task、mutex 或 FFI 的修改还必须按[贡献指南](../../CONTRIBUTING.md#local-verification)
 进行至少三分钟串口监控，并确认没有 watchdog、LVGL assertion、panic 或 reboot。

@@ -1,55 +1,29 @@
-# Changelog
+# Workspace changelog
 
-All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses [Semantic Versioning](https://semver.org/).
+This file records changes to the monorepo architecture, shared crates, BSP,
+build tooling, and CI. Application behavior and release history are recorded in
+the owning application changelog:
+
+- [Niu Lai changelog](apps/niulai/CHANGELOG.md)
+- [Diagnostics changelog](apps/diagnostics/CHANGELOG.md)
+
+All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
 ### Changed
 
-- Completed the Rust migration for Niu Lai application behavior, including its
-  state, UI orchestration, tasks, and voice-store policy, while retaining the
-  app-neutral ESP-IDF and board mechanisms in C.
-- Moved the complete Niu Lai application, tests, and media under `apps/niulai`;
-  application selection and releases are now independent of the shared Rust and
-  BSP modules.
-- Added a minimal independently released diagnostics application that reuses
-  only the shared Rust core, I2C, and battery modules.
-- Split application sdkconfig/partition policy from board defaults and divided
-  the BSP build into independently selectable hardware modules.
+- Reorganized documentation for the monorepo: cross-application guides now live
+  under topic directories, while application and shared-module docs live beside
+  their owning workspace members.
+- Applications are independently selected, built, packaged, and released from
+  `apps/<app>` without a shared registry.
+- Split application sdkconfig and partition policy from board defaults, and
+  divided the BSP into independently selectable hardware modules.
 - Added `passport-core` for shared pure Rust calculations and
   `passport-platform` as the reusable Rust facade over C BSP capabilities.
 
 ### Fixed
 
-- Application discovery now rejects incomplete or invalid `apps/<app>` directories
+- Application discovery rejects incomplete or invalid `apps/<app>` directories
   instead of silently omitting them from the CI firmware matrix.
-- Prevented button callbacks running in the `esp_timer` task from modifying
-  LVGL objects before acquiring the display lock, which could trigger an
-  `lv_inv_area()` assertion and leave the device in a watchdog loop.
-
-## [0.0.2] - 2026-08-24
-
-### Changed
-
-- Redesigned all four on-device pages with a cleaner layout, a unified modern palette, and fully Chinese UI copy.
-- Replaced the three-glyph fonts with minimal 12/16/22 px Source Han Sans SC subsets for the complete interface.
-- Replaced the generic hardware-demo documentation with project-specific user, build, architecture, and hardware guides.
-- Consolidated host tests and firmware packaging behind reusable scripts.
-- Added separate CI and tag-driven release workflows plus repository contribution templates.
-- Removed unused legacy demo UI code and an unembedded animation frame.
-- Committed the ESP-IDF dependency lock for reproducible builds.
-
-### Fixed
-
-- Resetting custom voices now erases the complete recording partition instead of leaving recoverable PCM data behind invalid headers.
-
-## [0.0.1] - 2026-08-24
-
-### Added
-
-- Initial open-source release of the Niu Lai interactive firmware.
-- Versioned full-device and app-only CI artifacts.
-
-[Unreleased]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.0.2...HEAD
-[0.0.2]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.0.1...v0.0.2
-[0.0.1]: https://github.com/JollySun/folo-ai-passport-niulai/releases/tag/v0.0.1

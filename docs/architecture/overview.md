@@ -1,4 +1,4 @@
-# 架构说明
+# Monorepo 架构
 
 ## 设计目标
 
@@ -65,15 +65,17 @@ LVGL、按键、音频或存储。Niu Lai 的状态机、UI、媒体、任务编
 `passport-platform::storage`/`bsp_storage`。这说明复用边界按能力选择，
 而不是把一个完整应用包装成另一个应用的公共依赖。
 
-新增工具的目录契约、最小模板和独立发布步骤见[新增应用指南](ADDING_APPS.md)。
+新增工具的目录契约、最小模板和独立发布步骤见[新增应用指南](../development/adding-apps.md)。
 
-## 运行任务
+## 运行时约束
 
-- LVGL 任务负责绘制和动画 timer。
-- button 组件通过 ESP-IDF `esp_timer` 任务轮询 ADC 并同步调用应用回调；
-  回调必须短小，不能执行音频、Flash 或其他长耗时操作。
-- `niulai_audio` 任务串行执行播放、录音、停止和重置命令。
-- `niulai_battery` 任务每秒刷新读数，I2C 故障时继续重试。
+`rust_app_entry` 只转交启动控制，应用自行创建所需任务和 queue。公共 platform
+不会隐藏应用任务、重试策略或调度周期。button 组件通过 ESP-IDF `esp_timer`
+任务轮询 ADC 并同步调用 Rust callback；进入 Rust 不会改变当前任务上下文，
+因此 callback 必须短小，不能执行音频、Flash 或其他长耗时操作。
+
+LVGL 任务负责绘制及 LVGL timer。音频、存储和其他可能阻塞的工作由应用投递
+到专用任务，不能占用 button callback 或 LVGL task。
 
 ### LVGL 并发约束
 
@@ -93,32 +95,15 @@ LVGL 不是线程安全的。以下规则是运行时不变量，不因应用数
 
 违反第 1、2 条可能在 `lv_inv_area()` 检测到 `rendering_in_progress` 时进入
 LVGL 默认断言死循环，随后表现为 `esp_timer` task watchdog。完整案例见
-[2026-08-25 LVGL 跨任务访问死机复盘](incidents/2026-08-25-lvgl-cross-task-freeze.md)。
+[2026-08-25 LVGL 跨任务访问死机复盘](../operations/incidents/2026-08-25-lvgl-cross-task-freeze.md)。
 
-音频读写只在音频任务执行。
+## 应用专属设计
 
-## Niu Lai Flash 布局
+任务名、页面、分区格式、素材管线和故障降级策略属于具体应用，不在公共架构
+文档复制：
 
-| 分区 | 偏移 | 大小 | 用途 |
-| --- | ---: | ---: | --- |
-| `nvs` | `0x9000` | 24 KB | ESP-IDF NVS |
-| `phy_init` | `0xF000` | 4 KB | PHY 初始化数据 |
-| `factory` | `0x10000` | 2 MB | 应用与内嵌媒体 |
-| `recordings` | `0x210000` | 2 MB | 两个角色的双 Bank PCM 录音 |
-
-每个录音槽使用两个 Bank。写入过程先擦除备用 Bank、流式追加 PCM，再写入包含 magic、版本、采样率、长度和序号的 header。启动时选择序号最新且 header 有效的 Bank；未完成的写入不会替换旧录音。设置页重置会擦除整个 `recordings` 分区，而不是只让录音在 UI 中不可见。
-
-## 素材管线
-
-- `apps/niulai/assets/` 保存可人工查看/试听的 PNG、GIF、WAV 和来源说明。
-- `apps/niulai/firmware/assets/` 保存直接嵌入固件的 RGB565 与无 WAV 头 PCM。
-- `apps/niulai/firmware/CMakeLists.txt` 是固件素材清单；没有在其中列出的二进制不会进入镜像。
-
-新增媒体前要确认再分发权，并检查 factory 分区余量和 ESP32-C3 内部 RAM。设备没有 PSRAM，音频使用固定大小块流式处理，禁止一次性加载完整录音。
-
-## 故障策略
-
-显示和 LVGL 是硬依赖，初始化失败时应用无法启动。音频、电量计和录音分区是软依赖：对应功能显示不可用，但页面和其他输入应继续工作。
+- [牛来应用](../../apps/niulai/README.md)：运行任务、录音分区、素材和软依赖策略。
+- [硬件诊断](../../apps/diagnostics/README.md)：最小依赖集和串口输出行为。
 
 ## 测试接口
 
@@ -128,3 +113,13 @@ LVGL 默认断言死循环，随后表现为 `esp_timer` task watchdog。完整�
 
 主机测试验证纯逻辑和边界契约；交叉编译验证 Rust/C 链接、依赖、分区和资源
 符号。显示、按键、声音、ADC、电池、并发及时序结论仍必须上板验收。
+
+## 文档归属
+
+- 根 README 只说明 workspace、应用清单和统一入口。
+- `docs/` 保存跨应用架构、构建、硬件与运维规则。
+- `apps/<app>/README.md` 和 `apps/<app>/docs/` 保存应用行为与使用说明。
+- `crates/<crate>/README.md` 描述公共 Rust interface 和约束。
+- `components/README.md` 描述公共 C 模块及依赖关系。
+
+内容应链接到所属位置，不在多个层级复制同一份参数、流程或行为说明。

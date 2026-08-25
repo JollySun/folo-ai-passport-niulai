@@ -1,18 +1,21 @@
 # Contributing
 
-Thanks for improving the Niu Lai firmware. Keep changes focused, reproducible, and safe for the resource-constrained ESP32-C3 target.
+Thanks for improving the AI Passport applications monorepo. Keep changes focused,
+reproducible, and safe for the resource-constrained ESP32-C3 target.
 
 ## Before opening a change
 
 1. Search existing issues and describe user-visible behavior before implementation details.
-2. Read [Architecture](docs/ARCHITECTURE.md) and [Hardware](docs/HARDWARE.md) for the affected area.
+2. Read [Architecture](docs/architecture/overview.md) and [Hardware](docs/architecture/hardware.md) for the affected area.
 3. Do not add movie or third-party media unless its redistribution terms are documented.
 4. Keep pure reusable algorithms in `crates/passport-core`, reusable Rust hardware
    access in `crates/passport-platform`, reusable board mechanisms in
    `components/bsp_*`, and all app-specific behavior and resources in `apps/<app>`.
-5. Follow [Adding an application](docs/ADDING_APPS.md) for new tools. A new app
+5. Follow [Adding an application](docs/development/adding-apps.md) for new tools. A new app
    must be discoverable without adding its name to shared crates, components,
    CMake files, scripts, or workflows.
+6. Keep cross-application docs under `docs/`, application docs under
+   `apps/<app>`, and public module docs beside their crate or C module index.
 
 ## Local verification
 
@@ -20,7 +23,8 @@ Use ESP-IDF 5.5.3 and run:
 
 ```bash
 scripts/test.sh
-scripts/build-app.sh niulai build
+scripts/list-apps.sh
+scripts/build-app.sh <affected-app> build
 git diff --check
 ```
 
@@ -38,7 +42,10 @@ Hardware-facing changes must also be tested on a FoloToy AI Passport. Record the
 - Every `Ui`/LVGL call must either run in the LVGL task or be enclosed by `display::lock()`/`bsp_lvgl_lock()`; application state methods must not contain hidden UI writes.
 - When both locks are needed, acquire the display lock before the application-state mutex. Never wait for the display lock while holding application state.
 - Prefer tests at a module interface over checks against implementation text.
-- Update user documentation and `CHANGELOG.md` when behavior changes.
+- Update the owning module/application documentation when behavior changes.
+  Application release notes go in `apps/<app>/CHANGELOG.md`; shared architecture,
+  tooling, BSP, or CI changes go in the root `CHANGELOG.md`. Link to canonical
+  content instead of copying it into root or cross-application docs.
 
 For any UI, callback, task, mutex, or FFI change, record these hardware checks in the pull request:
 
@@ -47,7 +54,7 @@ For any UI, callback, task, mutex, or FFI change, record these hardware checks i
 3. Exercise playback, animation, recording, saving, reset, and battery refresh paths affected by the change.
 4. Confirm that the log contains no `task_wdt`, LVGL assertion, panic, or reboot.
 
-See the [LVGL cross-task freeze incident](docs/incidents/2026-08-25-lvgl-cross-task-freeze.md) for why these checks are required.
+See the [LVGL cross-task freeze incident](docs/operations/incidents/2026-08-25-lvgl-cross-task-freeze.md) for why these checks are required.
 
 ## Commits and pull requests
 

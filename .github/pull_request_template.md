@@ -18,5 +18,5 @@ and confirm whether `task_wdt`, LVGL assertions, panics, or reboots occurred.
 - [ ] No generated build output or unlicensed media was added
 - [ ] App-specific behavior and resources remain under `apps/<app>`
 - [ ] Shared crates, components, CMake, and scripts remain app-neutral
-- [ ] Documentation and `CHANGELOG.md` were updated when needed
+- [ ] Owning documentation and the applicable workspace/app changelog were updated
 - [ ] Display, audio, battery, storage, and button regressions were considered

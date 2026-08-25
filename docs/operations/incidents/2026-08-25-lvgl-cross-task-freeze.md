@@ -80,7 +80,7 @@ display lock，再读取状态并更新 UI。活动页渲染本来就会设置�
 
 ## 防复发规则
 
-规则的规范版本位于[架构说明](../ARCHITECTURE.md#lvgl-并发约束)。代码评审至少确认：
+规则的规范版本位于[架构说明](../../architecture/overview.md#lvgl-并发约束)。代码评审至少确认：
 
 - 每个 `Ui`/LVGL 调用点都有明确的执行上下文或 display-lock guard。
 - 状态方法没有 UI、音频、Flash 等隐藏副作用。
@@ -99,7 +99,7 @@ display lock，再读取状态并更新 UI。活动页渲染本来就会设置�
 - 串口连续待机超过 3 分钟：无 `task_wdt`、LVGL assertion、panic 或 reboot。
 
 显示、按键、播放、录音和存储属于硬件行为。涉及相关路径的后续修改仍需按
-[贡献指南](../../CONTRIBUTING.md#local-verification)完成交互式真机测试，不能只以
+[贡献指南](../../../CONTRIBUTING.md#local-verification)完成交互式真机测试，不能只以
 主机测试或固件成功构建作为验收依据。
 
 ## 后续诊断方法

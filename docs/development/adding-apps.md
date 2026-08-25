@@ -11,11 +11,13 @@ package 名可以使用连字符；用于 static library 的名称使用下划�
 
 ## 自动发现契约
 
-以下文件必须同时存在，且 `test.sh` 必须可执行：
+推荐目录如下。自动发现要求 `Cargo.toml`、`firmware/CMakeLists.txt`、
+`sdkconfig.defaults` 和 `test.sh` 同时存在，且 `test.sh` 必须可执行：
 
 ```text
 apps/example/
 ├── Cargo.toml
+├── README.md
 ├── sdkconfig.defaults
 ├── test.sh
 ├── src/
@@ -38,6 +40,10 @@ scripts/list-apps.sh --json
 `scripts/check-architecture.sh` 还会拒绝公共 `crates/`、`components/`、`cmake/`、
 根构建文件和 scripts 中出现应用名，并拒绝 app firmware 目录中的手写 C 行为
 代码。
+
+`README.md` 不参与自动发现，但它是应用文档入口，应说明用途、依赖能力、构建
+命令、运行输出或交互、软硬依赖和独立发布标签。更详细的使用说明放在应用自己的
+`docs/` 子目录，不放入根 `docs/`。
 
 ## 1. 创建 Rust crate
 
@@ -187,8 +193,8 @@ scripts/build-app.sh example flash monitor
 
 应用只通过 `passport-platform` 使用硬件，但 callback 仍保留底层 C/ESP-IDF 的
 执行上下文。使用 LVGL、button、task 或 mutex 前必须阅读
-[LVGL 并发约束](ARCHITECTURE.md#lvgl-并发约束)，并按
-[硬件说明](HARDWARE.md)和[贡献指南](../CONTRIBUTING.md#local-verification)完成实机验收。
+[LVGL 并发约束](../architecture/overview.md#lvgl-并发约束)，并按
+[硬件说明](../architecture/hardware.md)和[贡献指南](../../CONTRIBUTING.md#local-verification)完成实机验收。
 
 ## 7. 独立打包和发布
 
