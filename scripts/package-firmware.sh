@@ -10,7 +10,14 @@ output_dir=${3:-dist/$app}
 version=${4:-dev}
 
 case "$app" in
-    *[!a-z0-9_-]*|'')
+    [a-z0-9]*) ;;
+    *)
+        printf 'Usage: %s <app> [build-dir] [output-dir] [version]\n' "$0" >&2
+        exit 2
+        ;;
+esac
+case "$app" in
+    *[!a-z0-9_-]*)
         printf 'Usage: %s <app> [build-dir] [output-dir] [version]\n' "$0" >&2
         exit 2
         ;;

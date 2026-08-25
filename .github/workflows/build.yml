@@ -26,7 +26,9 @@ jobs:
           persist-credentials: false
       - name: List buildable applications
         id: apps
-        run: echo "apps=$(scripts/list-apps.sh --json)" >> "$GITHUB_OUTPUT"
+        run: |
+          apps=$(scripts/list-apps.sh --json)
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
 
   host-tests:
     name: Host tests

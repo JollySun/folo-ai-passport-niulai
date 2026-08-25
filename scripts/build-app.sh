@@ -12,7 +12,14 @@ fi
 shift
 
 case "$app" in
-    *[!a-z0-9_-]*|'')
+    [a-z0-9]*) ;;
+    *)
+        printf 'Invalid application name: %s\n' "$app" >&2
+        exit 2
+        ;;
+esac
+case "$app" in
+    *[!a-z0-9_-]*)
         printf 'Invalid application name: %s\n' "$app" >&2
         exit 2
         ;;

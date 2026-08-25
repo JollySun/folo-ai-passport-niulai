@@ -31,6 +31,10 @@ scripts/list-apps.sh
 scripts/list-apps.sh --json
 ```
 
+`apps/` 下的目录不会被静默忽略：名称不合法、缺少任一必需文件或 `test.sh`
+不可执行时，发现命令和 CI 会直接失败并指出具体问题。这可以避免新工具只通过
+主机测试、却没有进入固件构建 matrix 的情况。
+
 `scripts/check-architecture.sh` 还会拒绝公共 `crates/`、`components/`、`cmake/`、
 根构建文件和 scripts 中出现应用名，并拒绝 app firmware 目录中的手写 C 行为
 代码。

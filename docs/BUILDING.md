@@ -54,6 +54,9 @@ apps/<app>/sdkconfig.defaults
 apps/<app>/test.sh
 ```
 
+`apps/` 下存在命名不合法或不满足该契约的目录时，发现步骤会明确失败，不会把它
+静默排除在 CI firmware matrix 之外。
+
 新增工具无需修改根 workspace、CMake、CI matrix 或发布 workflow。完整模板见
 [新增应用指南](ADDING_APPS.md)。
 

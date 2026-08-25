@@ -21,6 +21,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Fixed
 
+- Application discovery now rejects incomplete or invalid `apps/<app>` directories
+  instead of silently omitting them from the CI firmware matrix.
 - Prevented button callbacks running in the `esp_timer` task from modifying
   LVGL objects before acquiring the display lock, which could trigger an
   `lv_inv_area()` assertion and leave the device in a watchdog loop.

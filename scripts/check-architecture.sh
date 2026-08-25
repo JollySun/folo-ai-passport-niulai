@@ -25,7 +25,8 @@ done
 
 # Reusable modules must not know application names. Applications are selected
 # by directory discovery and the stable passport_app_main symbol.
-for app in $("$project_dir/scripts/list-apps.sh"); do
+apps=$("$project_dir/scripts/list-apps.sh")
+for app in $apps; do
     if grep -R -i -n --exclude-dir=target --exclude='Cargo.lock' \
         "$app" \
         "$project_dir/crates" "$project_dir/components" "$project_dir/cmake" \
