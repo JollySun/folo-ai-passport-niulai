@@ -28,6 +28,7 @@ app_main
 - LVGL 任务负责绘制和动画 timer。
 - button 组件任务只派发轻量事件；回调不能执行阻塞式音频或 Flash 操作。
 - `niulai_audio` 任务串行执行播放、录音、停止和重置命令。
+- `niulai_preferences` 任务合并并异步保存最新的音量和亮度，避免按键回调阻塞。
 - `niulai_battery` 任务每秒刷新读数，I2C 故障时继续重试。
 
 LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时必须持有 `bsp_lvgl_lock()`，音频读写只在音频任务执行。
@@ -36,18 +37,29 @@ LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时
 
 | 分区 | 偏移 | 大小 | 用途 |
 | --- | ---: | ---: | --- |
-| `nvs` | `0x9000` | 24 KB | ESP-IDF NVS |
+| `nvs` | `0x9000` | 24 KB | 音量、亮度等持久化设置 |
 | `phy_init` | `0xF000` | 4 KB | PHY 初始化数据 |
-| `factory` | `0x10000` | 2 MB | 应用与内嵌媒体 |
+| `factory` | `0x10000` | 2 MB | 应用与内嵌图片、声音 |
 | `recordings` | `0x210000` | 2 MB | 两个角色的双 Bank PCM 录音 |
 
+切换自其他分区布局时必须写入包含分区表的完整固件。分区地址变化后，原地址中的自定义录音不会自动迁移，需要重新录制。
+
 每个录音槽使用两个 Bank。写入过程先擦除备用 Bank、流式追加 PCM，再写入包含 magic、版本、采样率、长度和序号的 header。启动时选择序号最新且 header 有效的 Bank；未完成的写入不会替换旧录音。设置页重置会擦除整个 `recordings` 分区，而不是只让录音在 UI 中不可见。
+
+## 音频格式与动画
+
+- 两段内置 PCM 均为 12 kHz、16 bit、单声道，以减少固件体积。
+- 自定义录音保持 16 kHz、16 bit、单声道，最长 10 秒。
+- `niulai_audio` 播放前根据声音来源切换 codec 采样率，并以固定大小 PCM 块流式读写。
+- 内置声音使用与素材匹配的动画时长；自定义声音播放结束时动画同步停止。
 
 ## 素材管线
 
 - `assets/niulai/` 保存可人工查看/试听的 PNG、GIF、WAV 和来源说明。
 - `main/assets/niulai/` 保存直接嵌入固件的 RGB565 与无 WAV 头 PCM。
 - `main/CMakeLists.txt` 是固件素材清单；没有在其中列出的二进制不会进入镜像。
+
+`mama-preview.wav`、`niulai-preview.wav` 与同名固件 PCM 的样本内容应保持一致，仅 WAV 预览文件包含容器头。
 
 新增媒体前要确认再分发权，并检查 factory 分区余量和 ESP32-C3 内部 RAM。设备没有 PSRAM，音频使用固定大小块流式处理，禁止一次性加载完整录音。
 
@@ -57,4 +69,4 @@ LVGL 不是线程安全的。button、audio 和 battery 上下文修改对象时
 
 ## 测试接口
 
-`scripts/test.sh` 只通过模块公开接口验证纯逻辑，不依赖内部静态状态。完整 ESP-IDF 构建验证驱动、分区、素材符号和依赖集成；显示、声音、ADC 和电池仍必须上板验收。
+`scripts/test.sh` 通过模块或 LVGL 字体接口验证状态机、PCM 音量、电池换算、UI 状态切换和 12 px 字体子集覆盖，不依赖实体设备。完整 ESP-IDF 构建验证驱动、分区、素材符号和依赖集成；显示、声音、ADC 和电池仍必须上板验收。

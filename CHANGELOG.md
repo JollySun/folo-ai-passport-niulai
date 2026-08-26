@@ -4,6 +4,20 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Added
+
+- Added a clear hold-confirm-to-return reminder throughout settings.
+
+### Changed
+
+- Updated the built-in Mama voice with a quieter version.
+- Reduced the storage used by the two built-in voices.
+
+### Fixed
+
+- Custom-voice animation now stops when playback ends, including after repeated button presses.
+- Settings hints now display without missing-character boxes.
+
 ## [0.0.2] - 2026-08-24
 
 ### Changed

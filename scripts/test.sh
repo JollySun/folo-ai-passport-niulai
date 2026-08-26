@@ -30,4 +30,24 @@ run_test niulai_audio_math main \
 run_test bsp_battery_math components/bsp/include \
     tests/test_bsp_battery_math.c components/bsp/src/bsp_battery_math.c
 
+"$compiler" -std=gnu11 -Wall -Wextra -Werror \
+    -I"$project_dir/tests/fakes" \
+    -I"$project_dir/main" \
+    "$project_dir/tests/test_niulai_ui_transition.c" \
+    "$project_dir/main/niulai_app.c" \
+    "$project_dir/main/niulai_model.c" \
+    "$project_dir/main/niulai_audio_math.c" \
+    -o "$test_dir/niulai_ui_transition"
+"$test_dir/niulai_ui_transition"
+printf 'PASS: %s\n' niulai_ui_transition
+
+"$compiler" -std=c11 -Wall -Wextra -Werror \
+    -I"$project_dir/tests/fakes" \
+    -I"$project_dir/main" \
+    "$project_dir/tests/test_niulai_font_glyphs.c" \
+    "$project_dir/main/niulai_font_12.c" \
+    -o "$test_dir/niulai_font_glyphs"
+"$test_dir/niulai_font_glyphs"
+printf 'PASS: %s\n' niulai_font_glyphs
+
 printf 'All host tests passed.\n'

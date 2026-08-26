@@ -17,9 +17,10 @@ An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy A
 ## Features
 
 - Full-screen poster and two-frame Niu Lai/Mama animations.
-- Built-in 16 kHz mono dialogue with software volume control.
+- Built-in dialogue with adjustable playback volume.
 - Up to 10 seconds of replacement voice recording per character.
-- Power-loss-safe, dual-bank recording storage in a dedicated flash partition.
+- Saved recordings survive restarts, and an interrupted save keeps the previous recording intact.
+- Custom-voice animations stop when the recorded voice finishes.
 - iOS-style battery indicator with a voltage fallback when CW2017 SOC is unavailable.
 - Three-button UI; no network or account is required.
 
@@ -29,11 +30,20 @@ An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy A
 | --- | --- | --- |
 | Short `UP` | Any non-settings page | Show Niu Lai and play “Mama~~” |
 | Short `DOWN` | Any non-settings page | Show Mama and play “Niu Lai!” |
+| Repeat `UP` or `DOWN` within 1.8 s | Any non-settings page | Intensify that character's caption and animation |
+| Alternate `UP` and `DOWN` within 1.8 s | Any non-settings page | Flash both character colors as a call-and-response |
 | Hold `UP`, then release | Niu Lai page | Record and save the Niu Lai-page voice |
 | Hold `DOWN`, then release | Mama page | Record and save the Mama-page voice |
-| Short `OK` | Any page | Open settings, or return from settings |
-| Double `OK` | Settings | Delete custom recordings and restore built-in voices |
-| Hold `OK` | Any page | Stop audio and return home |
+| Short `OK` | Any non-settings page | Open settings |
+| Short `OK` | Settings | Activate/deactivate the selected value, or confirm voice reset |
+| Short `UP` or `DOWN` | Voice-reset confirmation | Cancel the reset |
+| Hold `OK` | Settings | Return to the page that opened settings |
+| Hold `OK` | Any other page | Stop audio and return home |
+
+The settings footer always shows the current button actions and a second-line
+`Hold OK to return` reminder.
+
+After 30 seconds without input, the LCD backlight turns off without changing the current caption. The next complete button gesture wakes the display without triggering its normal action.
 
 See the [user guide](docs/USER_GUIDE.md) for installation, recording behavior, and troubleshooting.
 
@@ -45,7 +55,7 @@ Download the newest artifacts from [GitHub Releases](https://github.com/JollySun
 - Flash `*-app.bin` at address `0x10000` only when the device already has this project's partition table.
 - Verify downloads with `SHA256SUMS`.
 
-The recording feature depends on the `recordings` partition. An app-only image cannot create it.
+If recording is unavailable after an app-only update, reinstall with the full image.
 
 ## Build from source
 

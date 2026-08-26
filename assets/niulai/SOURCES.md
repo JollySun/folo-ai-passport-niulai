@@ -1,6 +1,6 @@
 # Niu Lai asset sources
 
-The firmware uses short, low-resolution excerpts from publicly posted promotional/news material solely for an unofficial prototype.
+The firmware uses short, low-resolution excerpts from publicly posted promotional/news material for a Niu Lai derivative device experience. On 2026-08-26, the project owner confirmed that the film rights holder authorized this secondary development. The written authorization and its distribution terms are maintained outside this repository.
 
 These media files are **not licensed under the repository's MIT License**. This file records provenance; it does not grant permission to copy, publish, or distribute the underlying movie content.
 
@@ -12,10 +12,15 @@ These media files are **not licensed under the repository's MIT License**. This 
 - `home-ui-preview.png` is a documentation-only UI mockup created with OpenAI's
   built-in ImageGen from `home-preview.png`; firmware continues to embed the
   original poster and renders the interface with LVGL at runtime.
-- Extracted dialogue windows from the public news clip:
-  - `mama.pcm`: approximately 00:00.92–00:03.47
-  - `niulai.pcm`: approximately 00:06.15–00:07.50
+- Processed dialogue assets from the public news clip:
+  - `mama.pcm`: 4.09 seconds, 12 kHz/16-bit/mono.
+  - `niulai.pcm`: 1.35 seconds, 12 kHz/16-bit/mono.
+- `mama-preview.wav` and `niulai-preview.wav` contain the same samples as the
+  firmware PCM files in a WAV container for desktop preview.
 
-The repository stores only the processed 240-pixel preview frames and the two short 16 kHz mono PCM excerpts, not the downloaded news video. Confirm distribution rights before publishing source archives, binaries, screenshots, or recordings containing these assets.
+The repository stores only the processed poster/character frames and two short
+character audio excerpts, not the downloaded news video. Before public
+distribution, verify that the intended release channel and territory are
+covered by the external authorization.
 
 The on-device Chinese font subsets are covered separately in [the font notice](../FONTS.md).

@@ -1,11 +1,52 @@
-build/
-sdkconfig
-sdkconfig.old
-managed_components/
-.vscode/
-.DS_Store
-*.log
-releases/
-dist/
+# ESP-IDF and CMake build output
+/build/
+/build-flash/
+/managed_components/
+/sdkconfig
+/sdkconfig.old
+/compile_commands.json
+
+# Rust/Cargo build output
+target/
+rustc-ice-*.txt
+
+# Firmware packaging output
+/dist/
+/releases/
+
+# Test, coverage, and compiler output
 *.o
 *.out
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+/coverage/
+/lcov.info
+
+# Python caches used by helper scripts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local tooling and editor state
+/.codegraph/
+/.vscode/
+/.idea/
+*.swp
+*.swo
+*~
+
+# Local environment and transient files
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.temp
+*.dSYM/
+
+# Operating-system metadata
+.DS_Store
+._*
+Thumbs.db

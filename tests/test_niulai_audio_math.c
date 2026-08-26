@@ -26,5 +26,6 @@ int main(void)
 
     niulai_scale_pcm16(output, source, 5, 0);
     for (int i = 0; i < 5; ++i) assert(output[i] == 0);
+
     return 0;
 }

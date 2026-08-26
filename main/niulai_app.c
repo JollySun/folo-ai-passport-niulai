@@ -6,6 +6,7 @@
 #include "niulai_audio_math.h"
 #include "niulai_fonts.h"
 #include "niulai_model.h"
+#include "niulai_preferences.h"
 #include "niulai_voice_store.h"
 #include "bsp_audio.h"
 #include "bsp_battery.h"
@@ -28,13 +29,19 @@
 #define HOME_HEIGHT 320
 #define ACTIVE_HEIGHT 180
 #define AUDIO_SAMPLE_RATE 16000
+#define DEFAULT_AUDIO_SAMPLE_RATE 12000
 #define AUDIO_CHUNK_SAMPLES 512
 #define ANIMATION_PERIOD_MS 120
-#define MAMA_ANIMATION_MS 2550
+#define MAMA_ANIMATION_MS 4090
 #define NIULAI_ANIMATION_MS 1350
 #define BATTERY_REFRESH_MS 1000
-#define UI_TRANSITION_MS 160
-#define VOLUME_TRACK_WIDTH 184
+#define ROLE_CHAIN_WINDOW_MS 1800
+#define REPLY_FLASH_MS 960
+#define REPLY_FLASH_STEP_MS 240
+#define EXCITED_ANIMATION_EXTRA_MS 960
+#define SLEEP_TIMEOUT_MS 30000
+#define SLEEP_BACKLIGHT_PERCENT 0
+#define SETTINGS_TRACK_WIDTH 172
 
 #define UI_COLOR_BG 0x071A1E
 #define UI_COLOR_SURFACE 0x10292D
@@ -42,6 +49,8 @@
 #define UI_COLOR_TEXT 0xF7F2E8
 #define UI_COLOR_MUTED 0xA7C2BE
 #define UI_COLOR_ACCENT 0xE7A35B
+#define UI_COLOR_CALF 0xF38450
+#define UI_COLOR_MOTHER 0xF7C161
 #define UI_COLOR_EDGE 0x3C7772
 #define UI_COLOR_TRACK 0x294A4B
 
@@ -85,6 +94,11 @@ typedef enum {
     AUDIO_CMD_RESET_VOICES,
 } audio_command_t;
 
+typedef struct {
+    uint8_t volume;
+    uint8_t brightness;
+} preferences_update_t;
+
 typedef enum {
     RECORD_STATE_IDLE,
     RECORD_STATE_PREPARING,
@@ -107,20 +121,27 @@ static lv_obj_t *s_battery_fill;
 static lv_obj_t *s_battery_cap;
 static lv_obj_t *s_battery_value;
 static lv_obj_t *s_record_dot;
+static lv_obj_t *s_volume_panel;
 static lv_obj_t *s_volume_label;
 static lv_obj_t *s_volume_value;
 static lv_obj_t *s_volume_track;
 static lv_obj_t *s_volume_fill;
-static lv_obj_t *s_volume_help;
+static lv_obj_t *s_brightness_panel;
+static lv_obj_t *s_brightness_label;
+static lv_obj_t *s_brightness_value;
+static lv_obj_t *s_brightness_track;
+static lv_obj_t *s_brightness_fill;
 static lv_obj_t *s_settings_divider;
 static lv_obj_t *s_voice_label;
 static lv_obj_t *s_reset_panel;
 static lv_obj_t *s_reset_label;
 static QueueHandle_t s_audio_queue;
+static QueueHandle_t s_preferences_queue;
 static bool s_audio_ok;
 static bool s_battery_ok;
 static int s_battery_soc = -1;
 static volatile uint8_t s_volume = NIULAI_DEFAULT_VOLUME;
+static volatile uint8_t s_brightness = NIULAI_DEFAULT_BRIGHTNESS;
 static volatile record_state_t s_record_state = RECORD_STATE_IDLE;
 static volatile niulai_voice_slot_t s_record_slot = NIULAI_VOICE_CALF;
 static bool s_record_button_down;
@@ -130,8 +151,19 @@ static bool s_animation_frame;
 static uint32_t s_animation_left_ms;
 static uint32_t s_record_pulse_ms;
 static bool s_record_pulse_on;
-static bool s_rendered_page_valid;
-static niulai_page_t s_rendered_page;
+static uint32_t s_idle_ms;
+static bool s_sleeping;
+static bool s_ignore_wake_gesture;
+static bool s_last_role_valid;
+static bsp_btn_t s_last_role_button;
+static uint32_t s_role_chain_ms;
+static uint8_t s_emotion_level = 1;
+static uint32_t s_reply_flash_ms;
+static uint32_t s_reply_flash_step_ms;
+static bool s_reply_flash_previous;
+static uint32_t s_reply_previous_color;
+
+static void show_current_page(void);
 
 static lv_obj_t *make_label(lv_obj_t *parent, const lv_font_t *font,
                             uint32_t color)
@@ -174,18 +206,31 @@ static void style_surface(lv_obj_t *surface, uint32_t background,
 
 static void set_settings_widgets_hidden(bool hidden)
 {
+    set_hidden(s_volume_panel, hidden);
     set_hidden(s_volume_label, hidden);
     set_hidden(s_volume_value, hidden);
     set_hidden(s_volume_track, hidden);
-    set_hidden(s_volume_help, hidden);
+    set_hidden(s_brightness_panel, hidden);
+    set_hidden(s_brightness_label, hidden);
+    set_hidden(s_brightness_value, hidden);
+    set_hidden(s_brightness_track, hidden);
     set_hidden(s_settings_divider, hidden);
     set_hidden(s_voice_label, hidden);
     set_hidden(s_reset_panel, hidden);
 }
 
+static void set_primary_widgets_hidden(bool hidden)
+{
+    set_hidden(s_panel, hidden);
+    set_hidden(s_title, hidden);
+    set_hidden(s_phrase, hidden);
+    set_hidden(s_hint, hidden);
+}
+
 static const lv_image_dsc_t *animation_image(bool second_frame)
 {
-    if (s_model.page == NIULAI_PAGE_CALF) {
+    bool calf = s_model.page == NIULAI_PAGE_CALF;
+    if (calf) {
         return second_frame ? &CALF_2_IMAGE : &CALF_1_IMAGE;
     }
     return second_frame ? &MOTHER_2_IMAGE : &MOTHER_1_IMAGE;
@@ -219,9 +264,36 @@ static void update_battery_icon(void)
     lv_label_set_text_fmt(s_battery_value, "%d", percent);
 }
 
+static uint32_t role_color(bsp_btn_t button)
+{
+    return button == BSP_BTN_UP ? UI_COLOR_CALF : UI_COLOR_MOTHER;
+}
+
+static void clear_role_interaction(void)
+{
+    s_last_role_valid = false;
+    s_role_chain_ms = 0;
+    s_emotion_level = 1;
+    s_reply_flash_ms = 0;
+    s_reply_flash_step_ms = 0;
+    s_reply_flash_previous = false;
+}
+
+static void wake_display(void)
+{
+    s_sleeping = false;
+    s_idle_ms = 0;
+    bsp_display_backlight(s_brightness);
+    if (bsp_lvgl_lock(500)) {
+        show_current_page();
+        bsp_lvgl_unlock();
+    }
+}
+
 static void show_home(void)
 {
     s_animation_active = false;
+    set_primary_widgets_hidden(false);
     set_hidden(s_image, false);
     set_hidden(s_record_dot, true);
     set_settings_widgets_hidden(true);
@@ -235,13 +307,16 @@ static void show_home(void)
     style_surface(s_panel, UI_COLOR_SURFACE, UI_COLOR_EDGE, LV_OPA_90, 16, 1);
 
     set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
-                     20, 197, 200, 28, LV_TEXT_ALIGN_LEFT);
+                     20, 197, 200, 28, LV_TEXT_ALIGN_CENTER);
     set_label_layout(s_phrase, &niulai_font_16, UI_COLOR_TEXT,
                      20, 229, 200, 23, LV_TEXT_ALIGN_LEFT);
     set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
                      20, 260, 200, 42, LV_TEXT_ALIGN_LEFT);
     lv_label_set_text(s_title, "牛来");
-    lv_label_set_text(s_phrase, "上键  牛来   ·   下键  妈妈");
+    lv_label_set_recolor(s_phrase, true);
+    lv_label_set_text_fmt(s_phrase,
+        "上键  #%06lX 牛来#   ·   下键  #%06lX 妈妈#",
+        (unsigned long)UI_COLOR_CALF, (unsigned long)UI_COLOR_MOTHER);
     lv_label_set_text(s_hint, s_audio_ok
         ? "长按对应按键可录音\n确认键进入设置"
         : "声音暂不可用\n确认键进入设置");
@@ -251,8 +326,13 @@ static void show_home(void)
 static void show_active_page(void)
 {
     bool calf = s_model.page == NIULAI_PAGE_CALF;
+    uint32_t page_color = calf ? UI_COLOR_CALF : UI_COLOR_MOTHER;
+    niulai_voice_slot_t voice_slot = calf ? NIULAI_VOICE_CALF
+                                          : NIULAI_VOICE_MOTHER;
+    bool custom_voice = niulai_voice_store_has(voice_slot);
     bool record_page = (calf && s_record_slot == NIULAI_VOICE_CALF) ||
                        (!calf && s_record_slot == NIULAI_VOICE_MOTHER);
+    set_primary_widgets_hidden(false);
     set_hidden(s_image, false);
     set_settings_widgets_hidden(true);
     set_battery_hidden(true);
@@ -262,15 +342,16 @@ static void show_active_page(void)
 
     lv_obj_set_pos(s_panel, 8, 224);
     lv_obj_set_size(s_panel, 224, 88);
-    style_surface(s_panel, UI_COLOR_SURFACE, UI_COLOR_ACCENT,
+    style_surface(s_panel, UI_COLOR_SURFACE, page_color,
                   LV_OPA_COVER, 16, 1);
 
-    set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
-                     16, 10, 208, 28, LV_TEXT_ALIGN_LEFT);
+    set_label_layout(s_title, &niulai_font_22, page_color,
+                     20, 10, 200, 28, LV_TEXT_ALIGN_CENTER);
     set_label_layout(s_phrase, &niulai_font_22, UI_COLOR_TEXT,
                      20, 241, 200, 32, LV_TEXT_ALIGN_CENTER);
     set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
                      20, 286, 200, 18, LV_TEXT_ALIGN_CENTER);
+    lv_label_set_recolor(s_phrase, false);
     lv_label_set_text(s_title, calf ? "牛来" : "妈妈");
     if (record_page && s_record_state == RECORD_STATE_PREPARING) {
         lv_label_set_text(s_phrase, "准备录音");
@@ -282,7 +363,19 @@ static void show_active_page(void)
         lv_label_set_text(s_phrase, "录音已保存");
     } else if (record_page && s_record_state == RECORD_STATE_FAILED) {
         lv_label_set_text(s_phrase, "录音失败");
+    } else if (custom_voice && s_emotion_level >= 2) {
+        lv_obj_set_style_text_color(s_phrase, lv_color_hex(page_color), 0);
+        lv_label_set_text(s_phrase,
+                          calf ? "@#%&*!?@#！！" : "#@%&*!?#@！！");
+    } else if (custom_voice) {
+        lv_obj_set_style_text_color(s_phrase, lv_color_hex(page_color), 0);
+        lv_label_set_text(s_phrase,
+                          calf ? "@#%&*!?@#！" : "#@%&*!?#@！");
+    } else if (s_emotion_level >= 2) {
+        lv_obj_set_style_text_color(s_phrase, lv_color_hex(page_color), 0);
+        lv_label_set_text(s_phrase, calf ? "妈妈！妈妈！" : "牛来！牛来！");
     } else {
+        lv_obj_set_style_text_color(s_phrase, lv_color_hex(page_color), 0);
         lv_label_set_text(s_phrase, calf ? "妈妈～～" : "牛来！");
     }
     lv_label_set_text(s_hint,
@@ -305,6 +398,7 @@ static void show_active_page(void)
 static void show_settings(void)
 {
     s_animation_active = false;
+    set_primary_widgets_hidden(false);
     set_hidden(s_image, true);
     set_hidden(s_record_dot, true);
     set_settings_widgets_hidden(false);
@@ -318,17 +412,48 @@ static void show_settings(void)
 
     set_label_layout(s_title, &niulai_font_22, UI_COLOR_TEXT,
                      18, 14, 204, 30, LV_TEXT_ALIGN_LEFT);
-    set_label_layout(s_phrase, &niulai_font_16, UI_COLOR_TEXT,
-                     28, 176, 184, 24, LV_TEXT_ALIGN_LEFT);
+    lv_label_set_recolor(s_phrase, false);
+    set_label_layout(s_phrase, &niulai_font_12, UI_COLOR_TEXT,
+                     116, 198, 96, 18, LV_TEXT_ALIGN_RIGHT);
     set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
-                     28, 270, 184, 18, LV_TEXT_ALIGN_CENTER);
+                     20, 260, 200, 36, LV_TEXT_ALIGN_CENTER);
     lv_label_set_text(s_title, "设置");
+
+    bool volume_selected = s_model.setting == NIULAI_SETTING_VOLUME;
+    bool brightness_selected = s_model.setting == NIULAI_SETTING_BRIGHTNESS;
+    bool reset_selected = s_model.setting == NIULAI_SETTING_RESET_VOICES;
+    style_surface(s_volume_panel, UI_COLOR_SURFACE_ALT,
+                  volume_selected ? UI_COLOR_ACCENT : UI_COLOR_EDGE,
+                  volume_selected ? LV_OPA_COVER : LV_OPA_TRANSP,
+                  10, volume_selected ? (s_model.setting_active ? 2 : 1) : 1);
+    style_surface(s_brightness_panel, UI_COLOR_SURFACE_ALT,
+                  brightness_selected ? UI_COLOR_ACCENT : UI_COLOR_EDGE,
+                  brightness_selected ? LV_OPA_COVER : LV_OPA_TRANSP,
+                  10, brightness_selected ? (s_model.setting_active ? 2 : 1) : 1);
 
     lv_label_set_text(s_volume_label, "音量");
     lv_label_set_text_fmt(s_volume_value, "%d%%", s_model.volume);
-    int target_width = (s_model.volume * VOLUME_TRACK_WIDTH + 99) / 100;
+    lv_obj_set_style_text_color(s_volume_label,
+        lv_color_hex(volume_selected ? UI_COLOR_ACCENT : UI_COLOR_TEXT), 0);
+    lv_obj_set_style_text_color(s_volume_value,
+        lv_color_hex(volume_selected ? UI_COLOR_ACCENT : UI_COLOR_MUTED), 0);
+    int target_width =
+        (s_model.volume * SETTINGS_TRACK_WIDTH + 99) / 100;
     lv_obj_set_width(s_volume_fill, target_width);
-    lv_label_set_text(s_volume_help, "上键增加  ·  下键减少");
+    lv_obj_set_style_bg_color(s_volume_fill,
+        lv_color_hex(volume_selected ? UI_COLOR_ACCENT : UI_COLOR_EDGE), 0);
+
+    lv_label_set_text(s_brightness_label, "亮度");
+    lv_label_set_text_fmt(s_brightness_value, "%d%%", s_model.brightness);
+    lv_obj_set_style_text_color(s_brightness_label,
+        lv_color_hex(brightness_selected ? UI_COLOR_ACCENT : UI_COLOR_TEXT), 0);
+    lv_obj_set_style_text_color(s_brightness_value,
+        lv_color_hex(brightness_selected ? UI_COLOR_ACCENT : UI_COLOR_MUTED), 0);
+    target_width = (s_model.brightness * SETTINGS_TRACK_WIDTH + 99) / 100;
+    lv_obj_set_width(s_brightness_fill, target_width);
+    lv_obj_set_style_bg_color(s_brightness_fill,
+        lv_color_hex(brightness_selected ? UI_COLOR_ACCENT : UI_COLOR_EDGE), 0);
+
     lv_label_set_text(s_voice_label, "自定义声音");
 
     int custom_count = (niulai_voice_store_has(NIULAI_VOICE_CALF) ? 1 : 0) +
@@ -346,25 +471,51 @@ static void show_settings(void)
     } else {
         lv_label_set_text(s_phrase, "使用默认声音");
     }
-    lv_label_set_text(s_reset_label, "双击确认键恢复默认声音");
-    lv_label_set_text(s_hint, "确认键返回");
+    style_surface(s_reset_panel, UI_COLOR_SURFACE_ALT,
+                  s_model.reset_confirming ? UI_COLOR_MOTHER
+                                           : (reset_selected ? UI_COLOR_ACCENT
+                                                             : UI_COLOR_EDGE),
+                  LV_OPA_COVER, 9,
+                  reset_selected ? (s_model.reset_confirming ? 2 : 1) : 1);
+    lv_obj_set_style_text_color(s_reset_label,
+        lv_color_hex(reset_selected ? UI_COLOR_TEXT : UI_COLOR_MUTED), 0);
+    lv_label_set_text(s_reset_label, s_model.reset_confirming
+        ? "确认恢复默认声音?" : "确认键恢复默认声音");
+
+    if (s_model.reset_confirming) {
+        lv_label_set_text(s_hint,
+                          "确认键恢复  ·  上下键返回\n长按确认键返回");
+    } else if (s_model.setting_active) {
+        lv_label_set_text(s_hint,
+                          "上键增加  ·  下键减少\n长按确认键返回");
+    } else {
+        lv_label_set_text(s_hint,
+                          "上下键  ·  确认键进入\n长按确认键返回");
+    }
 }
 
 static void show_current_page(void)
 {
-    bool page_changed = !s_rendered_page_valid || s_rendered_page != s_model.page;
     if (s_model.page == NIULAI_PAGE_HOME) show_home();
     else if (s_model.page == NIULAI_PAGE_SETTINGS) show_settings();
     else show_active_page();
+}
 
-    if (page_changed) {
-        lv_obj_fade_in(s_panel, UI_TRANSITION_MS, 0);
-        if (s_model.page != NIULAI_PAGE_SETTINGS) {
-            lv_obj_fade_in(s_image, UI_TRANSITION_MS, 0);
-        }
-        s_rendered_page = s_model.page;
-        s_rendered_page_valid = true;
+static uint32_t voice_animation_duration_ms(niulai_action_t action,
+                                            bool *custom_voice)
+{
+    bool calf_voice = action == NIULAI_ACTION_PLAY_MAMA;
+    niulai_voice_slot_t slot = calf_voice ? NIULAI_VOICE_CALF
+                                          : NIULAI_VOICE_MOTHER;
+    *custom_voice = niulai_voice_store_has(slot);
+    if (!*custom_voice) {
+        return calf_voice ? MAMA_ANIMATION_MS : NIULAI_ANIMATION_MS;
     }
+
+    size_t bytes_per_second = NIULAI_RECORD_SAMPLE_RATE * sizeof(int16_t);
+    size_t bytes = niulai_voice_store_length(slot);
+    return (uint32_t)((bytes * 1000U + bytes_per_second - 1) /
+                      bytes_per_second);
 }
 
 static void start_animation(uint32_t duration_ms)
@@ -378,9 +529,55 @@ static void start_animation(uint32_t duration_ms)
 static void animation_tick(lv_timer_t *timer)
 {
     (void)timer;
-    if (s_record_state == RECORD_STATE_ACTIVE &&
+    bool recording = s_record_state == RECORD_STATE_PREPARING ||
+                     s_record_state == RECORD_STATE_ACTIVE ||
+                     s_record_state == RECORD_STATE_SAVING;
+    if (recording) {
+        s_idle_ms = 0;
+    } else if (!s_sleeping) {
+        s_idle_ms += ANIMATION_PERIOD_MS;
+        if (s_idle_ms >= SLEEP_TIMEOUT_MS) {
+            s_sleeping = true;
+            s_animation_active = false;
+            clear_role_interaction();
+            bsp_display_backlight(SLEEP_BACKLIGHT_PERCENT);
+        }
+    }
+
+    if (s_role_chain_ms > 0) {
+        s_role_chain_ms = s_role_chain_ms <= ANIMATION_PERIOD_MS
+                        ? 0 : s_role_chain_ms - ANIMATION_PERIOD_MS;
+        if (s_role_chain_ms == 0) s_last_role_valid = false;
+    }
+
+    if (s_reply_flash_ms > 0 &&
         (s_model.page == NIULAI_PAGE_CALF ||
          s_model.page == NIULAI_PAGE_MOTHER)) {
+        s_reply_flash_step_ms += ANIMATION_PERIOD_MS;
+        if (s_reply_flash_step_ms >= REPLY_FLASH_STEP_MS) {
+            s_reply_flash_step_ms = 0;
+            s_reply_flash_previous = !s_reply_flash_previous;
+            uint32_t current_color = s_model.page == NIULAI_PAGE_CALF
+                                   ? UI_COLOR_CALF : UI_COLOR_MOTHER;
+            lv_obj_set_style_border_color(s_panel,
+                lv_color_hex(s_reply_flash_previous
+                             ? s_reply_previous_color : current_color), 0);
+        }
+        if (s_reply_flash_ms <= ANIMATION_PERIOD_MS) {
+            s_reply_flash_ms = 0;
+            s_reply_flash_previous = false;
+            uint32_t current_color = s_model.page == NIULAI_PAGE_CALF
+                                   ? UI_COLOR_CALF : UI_COLOR_MOTHER;
+            lv_obj_set_style_border_color(s_panel, lv_color_hex(current_color), 0);
+        } else {
+            s_reply_flash_ms -= ANIMATION_PERIOD_MS;
+        }
+    }
+
+    bool pulse_recording = s_record_state == RECORD_STATE_ACTIVE &&
+        (s_model.page == NIULAI_PAGE_CALF ||
+         s_model.page == NIULAI_PAGE_MOTHER);
+    if (pulse_recording) {
         s_record_pulse_ms += ANIMATION_PERIOD_MS;
         if (s_record_pulse_ms >= 480) {
             s_record_pulse_ms = 0;
@@ -409,6 +606,28 @@ static void audio_request(audio_command_t command)
     if (s_audio_queue) xQueueOverwrite(s_audio_queue, &command);
 }
 
+static void preferences_request_save(void)
+{
+    if (!s_preferences_queue) return;
+    preferences_update_t update = {
+        .volume = s_model.volume,
+        .brightness = s_model.brightness,
+    };
+    xQueueOverwrite(s_preferences_queue, &update);
+}
+
+static void preferences_task(void *arg)
+{
+    (void)arg;
+    preferences_update_t update;
+    for (;;) {
+        if (xQueueReceive(s_preferences_queue, &update, portMAX_DELAY) == pdTRUE) {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(
+                niulai_preferences_save(update.volume, update.brightness));
+        }
+    }
+}
+
 static void set_record_state(record_state_t state)
 {
     s_record_state = state;
@@ -427,8 +646,10 @@ static audio_command_t play_voice(audio_command_t command)
     const uint8_t *default_end = calf_voice ? s_mama_pcm_end : s_niulai_pcm_end;
     size_t total = custom ? niulai_voice_store_length(slot)
                           : (size_t)(default_end - default_data);
+    uint32_t sample_rate = custom ? AUDIO_SAMPLE_RATE
+                                  : DEFAULT_AUDIO_SAMPLE_RATE;
 
-    if (bsp_audio_set_format(AUDIO_SAMPLE_RATE, 16, 1) != ESP_OK) {
+    if (bsp_audio_set_format(sample_rate, 16, 1) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to configure audio format");
         return AUDIO_CMD_STOP;
     }
@@ -455,7 +676,9 @@ static audio_command_t play_voice(audio_command_t command)
         offset += bytes;
 
         audio_command_t next;
-        if (xQueueReceive(s_audio_queue, &next, 0) == pdTRUE) return next;
+        if (xQueueReceive(s_audio_queue, &next, 0) == pdTRUE) {
+            return next;
+        }
     }
     return AUDIO_CMD_STOP;
 }
@@ -542,6 +765,20 @@ static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
 {
     (void)user;
 
+    if (s_sleeping) {
+        wake_display();
+        s_ignore_wake_gesture = event == BSP_BTN_PRESS;
+        return;
+    }
+    if (s_ignore_wake_gesture) {
+        if (event == BSP_BTN_CLICK || event == BSP_BTN_DOUBLE ||
+            event == BSP_BTN_LONG) {
+            s_ignore_wake_gesture = false;
+        }
+        return;
+    }
+    s_idle_ms = 0;
+
     if (event == BSP_BTN_RELEASE && s_record_button_down && button == s_record_button) {
         s_record_button_down = false;
         s_record_state = RECORD_STATE_SAVING;
@@ -558,6 +795,7 @@ static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
     bool record_mother = event == BSP_BTN_LONG && button == BSP_BTN_DOWN &&
                          s_model.page == NIULAI_PAGE_MOTHER;
     if (record_calf || record_mother) {
+        clear_role_interaction();
         s_record_slot = record_calf ? NIULAI_VOICE_CALF : NIULAI_VOICE_MOTHER;
         s_record_button = button;
         s_record_state = (s_audio_ok && niulai_voice_store_available())
@@ -574,22 +812,35 @@ static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
         return;
     }
 
-    if (event == BSP_BTN_DOUBLE && button == BSP_BTN_OK &&
-        s_model.page == NIULAI_PAGE_SETTINGS) {
-        s_record_state = (s_audio_queue && niulai_voice_store_available())
-                       ? RECORD_STATE_PREPARING : RECORD_STATE_FAILED;
-        if (bsp_lvgl_lock(500)) {
-            show_settings();
-            bsp_lvgl_unlock();
-        }
-        if (s_record_state == RECORD_STATE_PREPARING) {
-            audio_request(AUDIO_CMD_RESET_VOICES);
-        }
-        return;
-    }
-
-    niulai_input_t input = map_input(button, event);
+    bool role_activation =
+        (event == BSP_BTN_CLICK || event == BSP_BTN_DOUBLE) &&
+        (button == BSP_BTN_UP || button == BSP_BTN_DOWN) &&
+        s_model.page != NIULAI_PAGE_SETTINGS;
+    niulai_input_t input = role_activation
+                         ? (button == BSP_BTN_UP ? NIULAI_INPUT_UP_CLICK
+                                                : NIULAI_INPUT_DOWN_CLICK)
+                         : map_input(button, event);
     if (input == NIULAI_INPUT_NONE) return;
+
+    if (role_activation) {
+        bool chained = s_last_role_valid && s_role_chain_ms > 0;
+        bool same_role = chained && s_last_role_button == button;
+        bool reply = chained && s_last_role_button != button;
+        s_emotion_level = (event == BSP_BTN_DOUBLE || same_role) ? 2 : 1;
+        if (reply) {
+            s_reply_flash_ms = REPLY_FLASH_MS;
+            s_reply_flash_step_ms = 0;
+            s_reply_flash_previous = false;
+            s_reply_previous_color = role_color(s_last_role_button);
+        } else {
+            s_reply_flash_ms = 0;
+        }
+        s_last_role_button = button;
+        s_last_role_valid = true;
+        s_role_chain_ms = ROLE_CHAIN_WINDOW_MS;
+    } else {
+        clear_role_interaction();
+    }
 
     if (s_record_state == RECORD_STATE_SAVED ||
         s_record_state == RECORD_STATE_FAILED ||
@@ -600,10 +851,19 @@ static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
     if (!bsp_lvgl_lock(500)) return;
     niulai_action_t action = niulai_model_apply(&s_model, input);
 
+    if (action == NIULAI_ACTION_RESET_VOICES) {
+        s_record_state = (s_audio_queue && niulai_voice_store_available())
+                       ? RECORD_STATE_PREPARING : RECORD_STATE_FAILED;
+    }
+
     show_current_page();
     if (action == NIULAI_ACTION_PLAY_MAMA || action == NIULAI_ACTION_PLAY_NIULAI) {
-        start_animation(action == NIULAI_ACTION_PLAY_MAMA
-                        ? MAMA_ANIMATION_MS : NIULAI_ANIMATION_MS);
+        bool custom_voice;
+        uint32_t duration = voice_animation_duration_ms(action, &custom_voice);
+        if (!custom_voice && s_emotion_level >= 2) {
+            duration += EXCITED_ANIMATION_EXTRA_MS;
+        }
+        start_animation(duration);
     }
     bsp_lvgl_unlock();
 
@@ -612,6 +872,14 @@ static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
     else if (action == NIULAI_ACTION_STOP_AUDIO) audio_request(AUDIO_CMD_STOP);
     else if (action == NIULAI_ACTION_VOLUME_CHANGED) {
         s_volume = s_model.volume;
+        preferences_request_save();
+    } else if (action == NIULAI_ACTION_BRIGHTNESS_CHANGED) {
+        s_brightness = s_model.brightness;
+        bsp_display_backlight(s_brightness);
+        preferences_request_save();
+    } else if (action == NIULAI_ACTION_RESET_VOICES &&
+               s_record_state == RECORD_STATE_PREPARING) {
+        audio_request(AUDIO_CMD_RESET_VOICES);
     }
 }
 
@@ -702,39 +970,74 @@ static void build_ui(void)
     lv_obj_set_style_bg_color(s_record_dot, lv_color_hex(UI_COLOR_ACCENT), 0);
     lv_obj_set_style_bg_opa(s_record_dot, LV_OPA_COVER, 0);
 
+    s_volume_panel = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_volume_panel, 22, 59);
+    lv_obj_set_size(s_volume_panel, 196, 62);
+    lv_obj_remove_flag(s_volume_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_volume_panel, 0, 0);
+
     s_volume_label = make_label(s_screen, &niulai_font_16, UI_COLOR_TEXT);
     set_label_layout(s_volume_label, &niulai_font_16, UI_COLOR_TEXT,
-                     28, 66, 100, 24, LV_TEXT_ALIGN_LEFT);
-    s_volume_value = make_label(s_screen, &niulai_font_22, UI_COLOR_ACCENT);
-    set_label_layout(s_volume_value, &niulai_font_22, UI_COLOR_ACCENT,
-                     156, 61, 56, 30, LV_TEXT_ALIGN_RIGHT);
+                     30, 66, 100, 24, LV_TEXT_ALIGN_LEFT);
+    s_volume_value = make_label(s_screen, &niulai_font_16, UI_COLOR_ACCENT);
+    set_label_layout(s_volume_value, &niulai_font_16, UI_COLOR_ACCENT,
+                     158, 66, 52, 24, LV_TEXT_ALIGN_RIGHT);
 
     s_volume_track = lv_obj_create(s_screen);
-    lv_obj_set_pos(s_volume_track, 28, 99);
-    lv_obj_set_size(s_volume_track, VOLUME_TRACK_WIDTH, 10);
+    lv_obj_set_pos(s_volume_track, 34, 99);
+    lv_obj_set_size(s_volume_track, SETTINGS_TRACK_WIDTH, 8);
     lv_obj_remove_flag(s_volume_track, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(s_volume_track, 0, 0);
     lv_obj_set_style_border_width(s_volume_track, 0, 0);
-    lv_obj_set_style_radius(s_volume_track, 5, 0);
+    lv_obj_set_style_radius(s_volume_track, 4, 0);
     lv_obj_set_style_bg_color(s_volume_track, lv_color_hex(UI_COLOR_TRACK), 0);
     lv_obj_set_style_bg_opa(s_volume_track, LV_OPA_COVER, 0);
 
     s_volume_fill = lv_obj_create(s_volume_track);
     lv_obj_set_pos(s_volume_fill, 0, 0);
-    lv_obj_set_size(s_volume_fill, 0, 10);
+    lv_obj_set_size(s_volume_fill, 0, 8);
     lv_obj_remove_flag(s_volume_fill, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(s_volume_fill, 0, 0);
     lv_obj_set_style_border_width(s_volume_fill, 0, 0);
-    lv_obj_set_style_radius(s_volume_fill, 5, 0);
+    lv_obj_set_style_radius(s_volume_fill, 4, 0);
     lv_obj_set_style_bg_color(s_volume_fill, lv_color_hex(UI_COLOR_ACCENT), 0);
     lv_obj_set_style_bg_opa(s_volume_fill, LV_OPA_COVER, 0);
 
-    s_volume_help = make_label(s_screen, &niulai_font_12, UI_COLOR_MUTED);
-    set_label_layout(s_volume_help, &niulai_font_12, UI_COLOR_MUTED,
-                     28, 116, 184, 18, LV_TEXT_ALIGN_LEFT);
+    s_brightness_panel = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_brightness_panel, 22, 127);
+    lv_obj_set_size(s_brightness_panel, 196, 62);
+    lv_obj_remove_flag(s_brightness_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_brightness_panel, 0, 0);
+
+    s_brightness_label = make_label(s_screen, &niulai_font_16, UI_COLOR_TEXT);
+    set_label_layout(s_brightness_label, &niulai_font_16, UI_COLOR_TEXT,
+                     30, 134, 100, 24, LV_TEXT_ALIGN_LEFT);
+    s_brightness_value = make_label(s_screen, &niulai_font_16, UI_COLOR_ACCENT);
+    set_label_layout(s_brightness_value, &niulai_font_16, UI_COLOR_ACCENT,
+                     158, 134, 52, 24, LV_TEXT_ALIGN_RIGHT);
+
+    s_brightness_track = lv_obj_create(s_screen);
+    lv_obj_set_pos(s_brightness_track, 34, 167);
+    lv_obj_set_size(s_brightness_track, SETTINGS_TRACK_WIDTH, 8);
+    lv_obj_remove_flag(s_brightness_track, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_brightness_track, 0, 0);
+    lv_obj_set_style_border_width(s_brightness_track, 0, 0);
+    lv_obj_set_style_radius(s_brightness_track, 4, 0);
+    lv_obj_set_style_bg_color(s_brightness_track, lv_color_hex(UI_COLOR_TRACK), 0);
+    lv_obj_set_style_bg_opa(s_brightness_track, LV_OPA_COVER, 0);
+
+    s_brightness_fill = lv_obj_create(s_brightness_track);
+    lv_obj_set_pos(s_brightness_fill, 0, 0);
+    lv_obj_set_size(s_brightness_fill, 0, 8);
+    lv_obj_remove_flag(s_brightness_fill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_brightness_fill, 0, 0);
+    lv_obj_set_style_border_width(s_brightness_fill, 0, 0);
+    lv_obj_set_style_radius(s_brightness_fill, 4, 0);
+    lv_obj_set_style_bg_color(s_brightness_fill, lv_color_hex(UI_COLOR_ACCENT), 0);
+    lv_obj_set_style_bg_opa(s_brightness_fill, LV_OPA_COVER, 0);
 
     s_settings_divider = lv_obj_create(s_screen);
-    lv_obj_set_pos(s_settings_divider, 28, 141);
+    lv_obj_set_pos(s_settings_divider, 28, 194);
     lv_obj_set_size(s_settings_divider, 184, 1);
     lv_obj_set_style_pad_all(s_settings_divider, 0, 0);
     lv_obj_set_style_border_width(s_settings_divider, 0, 0);
@@ -743,21 +1046,20 @@ static void build_ui(void)
 
     s_voice_label = make_label(s_screen, &niulai_font_12, UI_COLOR_MUTED);
     set_label_layout(s_voice_label, &niulai_font_12, UI_COLOR_MUTED,
-                     28, 153, 184, 18, LV_TEXT_ALIGN_LEFT);
+                     28, 198, 84, 18, LV_TEXT_ALIGN_LEFT);
 
     s_reset_panel = lv_obj_create(s_screen);
-    lv_obj_set_pos(s_reset_panel, 24, 212);
-    lv_obj_set_size(s_reset_panel, 192, 42);
+    lv_obj_set_pos(s_reset_panel, 24, 222);
+    lv_obj_set_size(s_reset_panel, 192, 36);
     lv_obj_remove_flag(s_reset_panel, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(s_reset_panel, 0, 0);
     style_surface(s_reset_panel, UI_COLOR_SURFACE_ALT, UI_COLOR_ACCENT,
-                  LV_OPA_COVER, 11, 1);
+                  LV_OPA_COVER, 9, 1);
     s_reset_label = make_label(s_reset_panel, &niulai_font_12, UI_COLOR_TEXT);
     lv_obj_set_size(s_reset_label, 176, 18);
     lv_obj_set_style_text_align(s_reset_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_reset_label);
 
-    s_rendered_page_valid = false;
     show_current_page();
     lv_timer_create(animation_tick, ANIMATION_PERIOD_MS, NULL);
     lv_screen_load(s_screen);
@@ -766,7 +1068,20 @@ static void build_ui(void)
 esp_err_t niulai_app_start(void)
 {
     niulai_model_init(&s_model);
+    ESP_ERROR_CHECK_WITHOUT_ABORT(
+        niulai_preferences_load(&s_model.volume, &s_model.brightness));
     s_volume = s_model.volume;
+    s_brightness = s_model.brightness;
+    s_preferences_queue = xQueueCreate(1, sizeof(preferences_update_t));
+    if (!s_preferences_queue ||
+        xTaskCreate(preferences_task, "niulai_preferences", 2048, NULL, 1,
+                    NULL) != pdPASS) {
+        ESP_LOGW(TAG, "Settings persistence task unavailable");
+        if (s_preferences_queue) {
+            vQueueDelete(s_preferences_queue);
+            s_preferences_queue = NULL;
+        }
+    }
     ESP_ERROR_CHECK_WITHOUT_ABORT(niulai_voice_store_init());
     ESP_ERROR_CHECK_WITHOUT_ABORT(bsp_i2c_init());
 
@@ -775,12 +1090,13 @@ esp_err_t niulai_app_start(void)
                  BSP_LCD_MOSI, BSP_LCD_SCLK, BSP_LCD_CS, BSP_LCD_DC, BSP_LCD_BL);
         return ESP_FAIL;
     }
-    bsp_display_backlight(100);
+    bsp_display_backlight(s_brightness);
 
     s_audio_ok = bsp_audio_init() == ESP_OK;
     if (s_audio_ok) {
         s_audio_queue = xQueueCreate(1, sizeof(audio_command_t));
-        if (!s_audio_queue || xTaskCreate(audio_task, "niulai_audio", 6144, NULL, 4, NULL) != pdPASS) {
+        if (!s_audio_queue ||
+            xTaskCreate(audio_task, "niulai_audio", 6144, NULL, 4, NULL) != pdPASS) {
             ESP_LOGE(TAG, "Audio task creation failed");
             if (s_audio_queue) {
                 vQueueDelete(s_audio_queue);
@@ -810,7 +1126,9 @@ esp_err_t niulai_app_start(void)
     }
 
     ESP_LOGI(TAG, "Ready: UP=Niu Lai, DOWN=Mama, hold UP/DOWN=record, "
-                  "double OK in settings=reset voices, audio=%d, battery=%d, store=%d",
+                  "settings=%u%%/%u%%, "
+                  "audio=%d, battery=%d, store=%d",
+             s_model.volume, s_model.brightness,
              s_audio_ok, s_battery_ok, niulai_voice_store_available());
     return ESP_OK;
 }

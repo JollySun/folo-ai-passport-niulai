@@ -6,9 +6,10 @@ idf_component_register(
          "niulai_font_16.c"
          "niulai_font_22.c"
          "niulai_model.c"
+         "niulai_preferences.c"
          "niulai_voice_store.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp esp_partition
+    REQUIRES bsp esp_partition nvs_flash
     EMBED_FILES "assets/niulai/home.rgb565"
                 "assets/niulai/calf-1.rgb565"
                 "assets/niulai/calf-2.rgb565"
