@@ -179,3 +179,6 @@ void lv_obj_set_style_text_line_space(lv_obj_t *object, int space, int selector)
 void lv_screen_load(lv_obj_t *screen);
 lv_timer_t *lv_timer_create(void (*callback)(lv_timer_t *), uint32_t period,
                             void *user_data);
+void lv_timer_pause(lv_timer_t *timer);
+void lv_timer_resume(lv_timer_t *timer);
+void lv_timer_ready(lv_timer_t *timer);

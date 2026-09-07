@@ -25,3 +25,9 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes);
 
 // 输出音量 0..100(%)。
 void bsp_audio_set_volume(uint8_t percent);
+
+// 闲置省电:关闭 codec 数据流和 I2S 时钟，保留已创建的句柄以便快速恢复。
+esp_err_t bsp_audio_suspend(void);
+
+// 恢复闲置省电阶段关闭的 I2S 通道。
+esp_err_t bsp_audio_resume(void);

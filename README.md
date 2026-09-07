@@ -8,11 +8,27 @@ English | [简体中文](README.zh_CN.md)
 An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy AI Passport. It combines character animation, dialogue playback, battery status, volume control, and user-recorded replacement voices in one small firmware image.
 
 <p align="center">
-  <img src="assets/niulai/home-ui-preview.png" alt="Redesigned Niu Lai home screen" width="300">
+  <img src="docs/screenshots/home.png" alt="Niu Lai home screen" width="300">
 </p>
 
 > [!IMPORTANT]
 > This is an unofficial fan prototype. The MIT license covers the source code only. Movie images and audio may have separate rights; review [the asset source and distribution notice](assets/niulai/SOURCES.md) before redistributing firmware or media.
+
+## Screen captures
+
+These captures are rendered from the current firmware's 240×320 LVGL layout and
+the embedded character frames. The LCD has a write-only SPI connection, so these
+are software UI captures for documentation rather than camera photos of the
+physical panel.
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Home screen" width="180">
+  <img src="docs/screenshots/niulai.png" alt="Niu Lai page" width="180">
+</p>
+<p align="center">
+  <img src="docs/screenshots/mama.png" alt="Mama page" width="180">
+  <img src="docs/screenshots/settings.png" alt="Settings page" width="180">
+</p>
 
 ## Features
 
@@ -43,7 +59,7 @@ An offline interactive “Niu Lai” soundboard for the ESP32-C3-based FoloToy A
 The settings footer always shows the current button actions and a second-line
 `Hold OK to return` reminder.
 
-After 30 seconds without input, the LCD backlight turns off without changing the current caption. The next complete button gesture wakes the display without triggering its normal action.
+After 30 seconds without input, the LCD panel and audio path enter standby without changing the current caption. The next complete button gesture wakes the display without triggering its normal action. If the device remains idle for 5 minutes, the ESP32-C3 enters deep sleep; a low-level press on GPIO0 wakes it by rebooting the app.
 
 See the [user guide](docs/USER_GUIDE.md) for installation, recording behavior, and troubleshooting.
 

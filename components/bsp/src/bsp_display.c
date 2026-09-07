@@ -19,6 +19,7 @@ static const char *TAG = "bsp_disp";
 static esp_lcd_panel_handle_t    s_panel;
 static esp_lcd_panel_io_handle_t s_io;
 static bool                      s_bl_ready;
+static bool                      s_panel_sleeping;
 
 // ---------------------------------------------------------------------------
 // ST7789P3 厂商专属初始化序列(porch / power / gamma)。
@@ -149,4 +150,35 @@ void bsp_display_backlight(uint8_t percent) {
     uint32_t duty = (max_duty * percent) / 100u;
     ledc_set_duty(BSP_BL_LEDC_MODE, BSP_BL_LEDC_CHANNEL, duty);
     ledc_update_duty(BSP_BL_LEDC_MODE, BSP_BL_LEDC_CHANNEL);
+}
+
+esp_err_t bsp_display_sleep(void)
+{
+    if (!s_panel || !s_io) return ESP_ERR_INVALID_STATE;
+    if (s_panel_sleeping) return ESP_OK;
+
+    bsp_display_backlight(0);
+    esp_err_t error = esp_lcd_panel_disp_on_off(s_panel, false); // 0x28 DISPOFF
+    if (error != ESP_OK) return error;
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // ST7789P3 SLPIN 会停止 DC/DC、振荡器和面板扫描，保留接口与显存。
+    error = esp_lcd_panel_io_tx_param(s_io, 0x10, NULL, 0);
+    if (error != ESP_OK) return error;
+    vTaskDelay(pdMS_TO_TICKS(5));
+    s_panel_sleeping = true;
+    return ESP_OK;
+}
+
+esp_err_t bsp_display_wake(void)
+{
+    if (!s_panel || !s_io) return ESP_ERR_INVALID_STATE;
+
+    // 即使前一次 SLPIN 未完整成功也重复发送，保证唤醒路径可恢复。
+    esp_err_t error = esp_lcd_panel_io_tx_param(s_io, 0x11, NULL, 0); // SLPOUT
+    if (error != ESP_OK) return error;
+    vTaskDelay(pdMS_TO_TICKS(120));
+    error = esp_lcd_panel_disp_on_off(s_panel, true); // 0x29 DISPON
+    if (error == ESP_OK) s_panel_sleeping = false;
+    return error;
 }

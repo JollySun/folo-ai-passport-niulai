@@ -8,11 +8,26 @@
 这是一个运行在 ESP32-C3 FoloToy AI Passport 上的离线“牛来”互动播放器，集成角色动画、对白播放、电量显示、音量设置和自定义录音替换。
 
 <p align="center">
-  <img src="assets/niulai/home-ui-preview.png" alt="牛来新版首页预览" width="300">
+  <img src="docs/screenshots/home.png" alt="牛来首页" width="300">
 </p>
 
 > [!IMPORTANT]
 > 本项目是非官方爱好者原型。MIT 许可证只覆盖源代码，不自动授权电影图片和音频。重新分发固件或素材前，请先阅读[素材来源与分发提示](assets/niulai/SOURCES.md)。
+
+## 界面抓取
+
+以下界面按照当前固件的 240×320 LVGL 布局和内置角色帧生成。LCD 使用
+只写 SPI 接口，设备无法读回屏幕像素，因此这里是用于文档的界面抓取，
+不是实体设备的相机照片。
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="首页" width="180">
+  <img src="docs/screenshots/niulai.png" alt="牛来页" width="180">
+</p>
+<p align="center">
+  <img src="docs/screenshots/mama.png" alt="妈妈页" width="180">
+  <img src="docs/screenshots/settings.png" alt="设置页" width="180">
+</p>
 
 ## 功能
 

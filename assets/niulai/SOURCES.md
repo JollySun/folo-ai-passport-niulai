@@ -12,6 +12,9 @@ These media files are **not licensed under the repository's MIT License**. This 
 - `home-ui-preview.png` is a documentation-only UI mockup created with OpenAI's
   built-in ImageGen from `home-preview.png`; firmware continues to embed the
   original poster and renders the interface with LVGL at runtime.
+- `docs/screenshots/home.png`, `niulai.png`, `mama.png`, and `settings.png` are
+  software-rendered documentation captures of the current 240x320 LVGL layout,
+  composed from the firmware UI geometry and the corresponding embedded frames.
 - Processed dialogue assets from the public news clip:
   - `mama.pcm`: 4.09 seconds, 12 kHz/16-bit/mono.
   - `niulai.pcm`: 1.35 seconds, 12 kHz/16-bit/mono.

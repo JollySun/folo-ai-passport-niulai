@@ -13,11 +13,13 @@
 #include "bsp_button.h"
 #include "bsp_display.h"
 #include "bsp_i2c.h"
+#include "bsp_power.h"
 #include "bsp_pins.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -39,8 +41,10 @@
 #define REPLY_FLASH_MS 960
 #define REPLY_FLASH_STEP_MS 240
 #define EXCITED_ANIMATION_EXTRA_MS 960
-#define SLEEP_TIMEOUT_MS 30000
-#define SLEEP_BACKLIGHT_PERCENT 0
+#define DISPLAY_SLEEP_TIMEOUT_MS 30000
+#define DEEP_SLEEP_TIMEOUT_MS (5 * 60 * 1000)
+#define DEEP_SLEEP_DELAY_US \
+    ((uint64_t)(DEEP_SLEEP_TIMEOUT_MS - DISPLAY_SLEEP_TIMEOUT_MS) * 1000ULL)
 #define SETTINGS_TRACK_WIDTH 172
 
 #define UI_COLOR_BG 0x071A1E
@@ -137,6 +141,9 @@ static lv_obj_t *s_reset_panel;
 static lv_obj_t *s_reset_label;
 static QueueHandle_t s_audio_queue;
 static QueueHandle_t s_preferences_queue;
+static TaskHandle_t s_battery_task;
+static esp_timer_handle_t s_deep_sleep_timer;
+static lv_timer_t *s_animation_timer;
 static bool s_audio_ok;
 static bool s_battery_ok;
 static int s_battery_soc = -1;
@@ -152,7 +159,9 @@ static uint32_t s_animation_left_ms;
 static uint32_t s_record_pulse_ms;
 static bool s_record_pulse_on;
 static uint32_t s_idle_ms;
-static bool s_sleeping;
+static volatile bool s_sleeping;
+static volatile bool s_wake_requested;
+static volatile bool s_power_saving;
 static bool s_ignore_wake_gesture;
 static bool s_last_role_valid;
 static bsp_btn_t s_last_role_button;
@@ -279,14 +288,108 @@ static void clear_role_interaction(void)
     s_reply_flash_previous = false;
 }
 
-static void wake_display(void)
+static void deep_sleep_timer_cb(void *arg);
+
+static void schedule_deep_sleep(void)
 {
+    if (!s_deep_sleep_timer) {
+        const esp_timer_create_args_t timer_args = {
+            .callback = deep_sleep_timer_cb,
+            .arg = NULL,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "niulai_deep_sleep",
+        };
+        esp_err_t error = esp_timer_create(&timer_args, &s_deep_sleep_timer);
+        if (error != ESP_OK) {
+            ESP_LOGE(TAG, "深睡定时器创建失败: %s", esp_err_to_name(error));
+            return;
+        }
+    }
+
+    esp_err_t error = esp_timer_start_once(s_deep_sleep_timer,
+                                           DEEP_SLEEP_DELAY_US);
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "深睡定时器启动失败: %s", esp_err_to_name(error));
+    }
+}
+
+static void enter_display_sleep(void)
+{
+    if (s_sleeping) return;
+
+    s_sleeping = true;
+    s_power_saving = true;
+    s_animation_active = false;
+    clear_role_interaction();
+
+    esp_err_t display_error = bsp_display_sleep();
+    if (display_error != ESP_OK) {
+        ESP_LOGW(TAG, "显示待机失败: %s", esp_err_to_name(display_error));
+    }
+    if (s_audio_ok) {
+        esp_err_t audio_error = bsp_audio_suspend();
+        if (audio_error != ESP_OK) {
+            ESP_LOGW(TAG, "音频待机失败: %s", esp_err_to_name(audio_error));
+        }
+    }
+
+    // 30 秒后暂停动画定时器，避免为了等待 5 分钟持续唤醒 CPU。
+    if (s_animation_timer) lv_timer_pause(s_animation_timer);
+    schedule_deep_sleep();
+}
+
+static void complete_display_wake(void)
+{
+    if (!s_wake_requested) return;
+    s_wake_requested = false;
+    s_power_saving = false;
     s_sleeping = false;
     s_idle_ms = 0;
+
+    // 该函数在 LVGL 任务中执行，允许等待 ST7789P3 的 120ms SLPOUT 稳定期。
+    esp_err_t display_error = bsp_display_wake();
+    if (display_error != ESP_OK) {
+        ESP_LOGW(TAG, "显示唤醒失败: %s", esp_err_to_name(display_error));
+    }
+    if (s_audio_ok) {
+        esp_err_t audio_error = bsp_audio_resume();
+        if (audio_error != ESP_OK) {
+            ESP_LOGW(TAG, "音频恢复失败: %s", esp_err_to_name(audio_error));
+        }
+    }
     bsp_display_backlight(s_brightness);
+    show_current_page();
+}
+
+static void wake_display(void)
+{
+    if (!s_sleeping) return;
+
+    if (s_deep_sleep_timer && esp_timer_is_active(s_deep_sleep_timer)) {
+        esp_timer_stop(s_deep_sleep_timer);
+    }
+    s_power_saving = false;
+    if (s_battery_task) xTaskNotifyGive(s_battery_task);
+
+    // 按键回调不能阻塞等待面板唤醒；把实际恢复工作交给 LVGL 任务。
     if (bsp_lvgl_lock(500)) {
-        show_current_page();
+        s_wake_requested = true;
+        if (s_animation_timer) {
+            lv_timer_resume(s_animation_timer);
+            lv_timer_ready(s_animation_timer);
+        }
         bsp_lvgl_unlock();
+    }
+}
+
+static void deep_sleep_timer_cb(void *arg)
+{
+    (void)arg;
+    if (!s_sleeping || s_wake_requested) return;
+
+    esp_err_t error = bsp_power_enter_deep_sleep();
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "进入深睡失败: %s", esp_err_to_name(error));
     }
 }
 
@@ -312,7 +415,7 @@ static void show_home(void)
                      20, 229, 200, 23, LV_TEXT_ALIGN_LEFT);
     set_label_layout(s_hint, &niulai_font_12, UI_COLOR_MUTED,
                      20, 260, 200, 42, LV_TEXT_ALIGN_LEFT);
-    lv_label_set_text(s_title, "牛来");
+    lv_label_set_text(s_title, "《牛来》");
     lv_label_set_recolor(s_phrase, true);
     lv_label_set_text_fmt(s_phrase,
         "上键  #%06lX 牛来#   ·   下键  #%06lX 妈妈#",
@@ -529,6 +632,11 @@ static void start_animation(uint32_t duration_ms)
 static void animation_tick(lv_timer_t *timer)
 {
     (void)timer;
+    if (s_wake_requested) {
+        complete_display_wake();
+        return;
+    }
+
     bool recording = s_record_state == RECORD_STATE_PREPARING ||
                      s_record_state == RECORD_STATE_ACTIVE ||
                      s_record_state == RECORD_STATE_SAVING;
@@ -536,13 +644,12 @@ static void animation_tick(lv_timer_t *timer)
         s_idle_ms = 0;
     } else if (!s_sleeping) {
         s_idle_ms += ANIMATION_PERIOD_MS;
-        if (s_idle_ms >= SLEEP_TIMEOUT_MS) {
-            s_sleeping = true;
-            s_animation_active = false;
-            clear_role_interaction();
-            bsp_display_backlight(SLEEP_BACKLIGHT_PERCENT);
+        if (s_idle_ms >= DISPLAY_SLEEP_TIMEOUT_MS) {
+            enter_display_sleep();
         }
     }
+
+    if (s_sleeping) return;
 
     if (s_role_chain_ms > 0) {
         s_role_chain_ms = s_role_chain_ms <= ANIMATION_PERIOD_MS
@@ -887,6 +994,10 @@ static void battery_task(void *arg)
 {
     (void)arg;
     for (;;) {
+        if (s_power_saving) {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            continue;
+        }
         if (!s_battery_ok) s_battery_ok = bsp_battery_init() == ESP_OK;
         if (s_battery_ok) {
             int soc = bsp_battery_soc();
@@ -1061,13 +1172,14 @@ static void build_ui(void)
     lv_obj_center(s_reset_label);
 
     show_current_page();
-    lv_timer_create(animation_tick, ANIMATION_PERIOD_MS, NULL);
+    s_animation_timer = lv_timer_create(animation_tick, ANIMATION_PERIOD_MS, NULL);
     lv_screen_load(s_screen);
 }
 
 esp_err_t niulai_app_start(void)
 {
     niulai_model_init(&s_model);
+    s_ignore_wake_gesture = bsp_power_woke_from_deep_sleep();
     ESP_ERROR_CHECK_WITHOUT_ABORT(
         niulai_preferences_load(&s_model.volume, &s_model.brightness));
     s_volume = s_model.volume;
@@ -1115,7 +1227,9 @@ esp_err_t niulai_app_start(void)
     build_ui();
     bsp_lvgl_unlock();
 
-    if (xTaskCreate(battery_task, "niulai_battery", 3072, NULL, 2, NULL) != pdPASS) {
+    if (xTaskCreate(battery_task, "niulai_battery", 3072, NULL, 2,
+                    &s_battery_task) != pdPASS) {
+        s_battery_task = NULL;
         ESP_LOGW(TAG, "Battery refresh task creation failed");
     }
 

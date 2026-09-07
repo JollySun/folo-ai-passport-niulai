@@ -21,6 +21,25 @@ static i2s_chan_handle_t      s_tx, s_rx;
 static uint32_t s_hz;
 static uint8_t  s_bits, s_ch;
 static bool     s_opened;
+static bool     s_suspended;
+
+static void disable_channel(i2s_chan_handle_t channel)
+{
+    if (!channel) return;
+    esp_err_t error = i2s_channel_disable(channel);
+    if (error != ESP_OK && error != ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "I2S 通道关闭失败: %s", esp_err_to_name(error));
+    }
+}
+
+static void enable_channel(i2s_chan_handle_t channel)
+{
+    if (!channel) return;
+    esp_err_t error = i2s_channel_enable(channel);
+    if (error != ESP_OK && error != ESP_ERR_INVALID_STATE) {
+        ESP_LOGW(TAG, "I2S 通道恢复失败: %s", esp_err_to_name(error));
+    }
+}
 
 static esp_err_t i2s_full_duplex_init(void) {
     i2s_chan_config_t chan = {
@@ -128,6 +147,7 @@ esp_err_t bsp_audio_init(void) {
 
 esp_err_t bsp_audio_set_format(uint32_t hz, uint8_t bits, uint8_t ch) {
     if (!s_dev) return ESP_ERR_INVALID_STATE;
+    if (s_suspended) return ESP_ERR_INVALID_STATE;
     if (s_opened && s_hz == hz && s_bits == bits && s_ch == ch) return ESP_OK;   // 同格式复用
 
     if (s_opened) {
@@ -171,4 +191,35 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes) {
 
 void bsp_audio_set_volume(uint8_t percent) {
     if (s_dev) esp_codec_dev_set_out_vol(s_dev, percent);
+}
+
+esp_err_t bsp_audio_suspend(void)
+{
+    if (!s_dev) return ESP_ERR_INVALID_STATE;
+    if (s_suspended) return ESP_OK;
+
+    if (s_opened) {
+        int result = esp_codec_dev_close(s_dev);
+        if (result != ESP_CODEC_DEV_OK) {
+            ESP_LOGW(TAG, "codec 关闭失败: %d", result);
+        }
+        s_opened = false;
+    }
+
+    // codec close() 已经可能关闭过通道；重复关闭时忽略 INVALID_STATE。
+    disable_channel(s_tx);
+    disable_channel(s_rx);
+    s_suspended = true;
+    return ESP_OK;
+}
+
+esp_err_t bsp_audio_resume(void)
+{
+    if (!s_dev) return ESP_ERR_INVALID_STATE;
+    if (!s_suspended) return ESP_OK;
+
+    enable_channel(s_tx);
+    enable_channel(s_rx);
+    s_suspended = false;
+    return ESP_OK;
 }

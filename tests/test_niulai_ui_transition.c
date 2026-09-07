@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "bsp_button.h"
+#include "esp_timer.h"
 #include "lvgl.h"
 #include "niulai_app.h"
 #include "niulai_fonts.h"
@@ -41,6 +42,13 @@ static lv_display_t s_display;
 static lv_timer_t s_timer;
 static void (*s_timer_callback)(lv_timer_t *);
 static uint8_t s_backlight_percent;
+static int s_display_sleep_calls;
+static int s_display_wake_calls;
+static int s_deep_sleep_calls;
+static uint64_t s_deep_sleep_timeout_us;
+static bool s_deep_sleep_timer_active;
+static void (*s_deep_sleep_timer_callback)(void *arg);
+static void *s_deep_sleep_timer_arg;
 
 static lv_obj_t *new_object(void)
 {
@@ -107,10 +115,20 @@ lv_timer_t *lv_timer_create(void (*callback)(lv_timer_t *), uint32_t period,
     (void)user_data;
     return &s_timer;
 }
+void lv_timer_pause(lv_timer_t *timer) { (void)timer; }
+void lv_timer_resume(lv_timer_t *timer) { (void)timer; }
+void lv_timer_ready(lv_timer_t *timer) { (void)timer; }
 
 esp_err_t bsp_display_init(void) { return ESP_OK; }
 lv_display_t *bsp_lvgl_init(void) { return &s_display; }
 void bsp_display_backlight(uint8_t percent) { s_backlight_percent = percent; }
+esp_err_t bsp_display_sleep(void)
+{
+    s_display_sleep_calls++;
+    s_backlight_percent = 0;
+    return ESP_OK;
+}
+esp_err_t bsp_display_wake(void) { s_display_wake_calls++; return ESP_OK; }
 bool bsp_lvgl_lock(uint32_t timeout_ms) { (void)timeout_ms; return true; }
 void bsp_lvgl_unlock(void) {}
 esp_err_t bsp_i2c_init(void) { return ESP_OK; }
@@ -119,8 +137,16 @@ esp_err_t bsp_audio_set_format(uint32_t hz, uint8_t bits, uint8_t channels) { (v
 esp_err_t bsp_audio_write(const void *pcm, size_t bytes) { (void)pcm; (void)bytes; return ESP_OK; }
 esp_err_t bsp_audio_read(void *pcm, size_t bytes) { (void)pcm; (void)bytes; return ESP_OK; }
 void bsp_audio_set_volume(uint8_t percent) { (void)percent; }
+esp_err_t bsp_audio_suspend(void) { return ESP_OK; }
+esp_err_t bsp_audio_resume(void) { return ESP_OK; }
 esp_err_t bsp_battery_init(void) { return ESP_FAIL; }
 int bsp_battery_soc(void) { return -1; }
+esp_err_t bsp_power_enter_deep_sleep(void)
+{
+    s_deep_sleep_calls++;
+    return ESP_OK;
+}
+bool bsp_power_woke_from_deep_sleep(void) { return false; }
 esp_err_t bsp_button_init(bsp_btn_cb_t callback, void *user)
 {
     s_button_callback = callback;
@@ -167,9 +193,53 @@ BaseType_t xTaskCreate(void (*task)(void *), const char *name,
                        UBaseType_t priority, TaskHandle_t *handle)
 {
     (void)task; (void)name; (void)stack_depth; (void)argument;
-    (void)priority; (void)handle; return pdPASS;
+    (void)priority;
+    if (handle) *handle = (TaskHandle_t)1;
+    return pdPASS;
 }
 void vTaskDelay(TickType_t ticks) { (void)ticks; }
+uint32_t ulTaskNotifyTake(BaseType_t clear_on_exit, TickType_t ticks_to_wait)
+{
+    (void)clear_on_exit; (void)ticks_to_wait; return 0;
+}
+BaseType_t xTaskNotifyGive(TaskHandle_t task) { (void)task; return pdPASS; }
+
+struct esp_timer_stub {
+    unsigned int unused;
+};
+
+esp_err_t esp_timer_create(const esp_timer_create_args_t *args,
+                           esp_timer_handle_t *out_handle)
+{
+    s_deep_sleep_timer_callback = args->callback;
+    s_deep_sleep_timer_arg = args->arg;
+    *out_handle = (esp_timer_handle_t)1;
+    return ESP_OK;
+}
+esp_err_t esp_timer_start_once(esp_timer_handle_t timer, uint64_t timeout_us)
+{
+    (void)timer;
+    s_deep_sleep_timeout_us = timeout_us;
+    s_deep_sleep_timer_active = true;
+    return ESP_OK;
+}
+esp_err_t esp_timer_stop(esp_timer_handle_t timer)
+{
+    (void)timer;
+    s_deep_sleep_timer_active = false;
+    return ESP_OK;
+}
+bool esp_timer_is_active(esp_timer_handle_t timer)
+{
+    (void)timer;
+    return s_deep_sleep_timer_active;
+}
+void esp_timer_fire_stub(void)
+{
+    if (!s_deep_sleep_timer_active) return;
+    s_deep_sleep_timer_active = false;
+    s_deep_sleep_timer_callback(s_deep_sleep_timer_arg);
+}
 
 int main(void)
 {
@@ -182,7 +252,7 @@ int main(void)
     lv_obj_t *panel = &s_objects[2];
     lv_obj_t *reset_label = &s_objects[24];
     assert(s_backlight_percent == NIULAI_DEFAULT_BRIGHTNESS);
-    assert(strcmp(title->text, "牛来") == 0);
+    assert(strcmp(title->text, "《牛来》") == 0);
     assert(title->text_color == 0xF7F2E8);
     assert(title->x == 20);
     assert(title->width == 200);
@@ -214,7 +284,7 @@ int main(void)
     s_button_callback(BSP_BTN_OK, BSP_BTN_CLICK, s_button_user);
     assert(strcmp(phrase->text, "恢复失败") == 0);
     s_button_callback(BSP_BTN_OK, BSP_BTN_LONG, s_button_user);
-    assert(strcmp(title->text, "牛来") == 0);
+    assert(strcmp(title->text, "《牛来》") == 0);
 
     s_fade_in_calls = 0;
     s_button_callback(BSP_BTN_UP, BSP_BTN_CLICK, s_button_user);
@@ -247,7 +317,7 @@ int main(void)
     s_button_callback(BSP_BTN_OK, BSP_BTN_LONG, s_button_user);
     s_button_callback(BSP_BTN_OK, BSP_BTN_DOUBLE, s_button_user);
     assert(s_fade_in_calls == 0);
-    assert(strcmp(title->text, "牛来") == 0);
+    assert(strcmp(title->text, "《牛来》") == 0);
     assert(strcmp(phrase->text,
                   "上键  #F38450 牛来#   ·   下键  #F7C161 妈妈#") == 0);
     assert(strcmp(hint->text,
@@ -281,17 +351,22 @@ int main(void)
 
     s_button_callback(BSP_BTN_OK, BSP_BTN_LONG, s_button_user);
     s_button_callback(BSP_BTN_OK, BSP_BTN_DOUBLE, s_button_user);
-    assert(strcmp(title->text, "牛来") == 0);
+    assert(strcmp(title->text, "《牛来》") == 0);
     assert(strcmp(phrase->text,
                   "上键  #F38450 牛来#   ·   下键  #F7C161 妈妈#") == 0);
 
     for (int i = 0; i < 250; ++i) s_timer_callback(&s_timer);
     assert(s_backlight_percent == 0);
+    assert(s_display_sleep_calls == 1);
+    assert(s_deep_sleep_timeout_us == 270000000ULL);
     assert(strcmp(phrase->text,
                   "上键  #F38450 牛来#   ·   下键  #F7C161 妈妈#") == 0);
 
     s_button_callback(BSP_BTN_UP, BSP_BTN_PRESS, s_button_user);
+    assert(s_backlight_percent == 0);
+    s_timer_callback(&s_timer);
     assert(s_backlight_percent == 80);
+    assert(s_display_wake_calls == 1);
     assert(strcmp(phrase->text,
                   "上键  #F38450 牛来#   ·   下键  #F7C161 妈妈#") == 0);
     s_button_callback(BSP_BTN_UP, BSP_BTN_RELEASE, s_button_user);
@@ -301,5 +376,11 @@ int main(void)
     s_button_callback(BSP_BTN_UP, BSP_BTN_CLICK, s_button_user);
     assert(strcmp(phrase->text, "@#%&*!?@#！") == 0);
     assert(phrase->text_color == 0xF38450);
+
+    for (int i = 0; i < 250; ++i) s_timer_callback(&s_timer);
+    assert(s_display_sleep_calls == 2);
+    assert(s_deep_sleep_timeout_us == 270000000ULL);
+    esp_timer_fire_stub();
+    assert(s_deep_sleep_calls == 1);
     return 0;
 }

@@ -123,5 +123,6 @@ int main(void)
     assert_font_supports("上下键  ·  确认键进入\n长按确认键返回");
     assert_font_supports("上键增加  ·  下键减少\n长按确认键返回");
     assert_font_supports("确认键恢复  ·  上下键返回\n长按确认键返回");
+    assert_font_supports("《牛来》");
     return 0;
 }

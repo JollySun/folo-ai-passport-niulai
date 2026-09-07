@@ -9,7 +9,7 @@ idf_component_register(
          "niulai_preferences.c"
          "niulai_voice_store.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp esp_partition nvs_flash
+    REQUIRES bsp esp_partition nvs_flash esp_timer
     EMBED_FILES "assets/niulai/home.rgb565"
                 "assets/niulai/calf-1.rgb565"
                 "assets/niulai/calf-2.rgb565"
