@@ -4,6 +4,18 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-08
+
+### Added
+
+- The device now enters deep sleep after 5 minutes of inactivity and wakes on a low-level GPIO0 button press.
+- Added rendered screen captures of all four pages to the README.
+
+### Changed
+
+- Idle standby now suspends the LCD panel, the audio path, and the animation timer instead of only turning off the backlight.
+- Extended the built-in font subsets with the 《》 glyphs used by the poster caption.
+
 ## [0.1.0] - 2026-08-27
 
 ### Added
@@ -43,7 +55,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Initial open-source release of the Niu Lai interactive firmware.
 - Versioned full-device and app-only CI artifacts.
 
-[Unreleased]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/JollySun/folo-ai-passport-niulai/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/JollySun/folo-ai-passport-niulai/releases/tag/v0.0.1
